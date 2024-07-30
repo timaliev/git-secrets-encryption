@@ -1,7 +1,9 @@
 #!/bin/bash
+# (SPDX-License-Identifier: MIT)
 #
 # Setup secrets encryption for git
 # Can be enabled globally or per repository
+# See https://github.com/timaliev/git-secrets-encryption/ for more info
 #
 # Enable global debug
 # set -xv
