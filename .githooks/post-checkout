@@ -1,0 +1,215 @@
+#!/bin/bash
+#
+# Hook script to do something after repo checkout.
+# Called by "git clone" with 3 arguments:
+# $1 - old ref (00000... if new clone)
+# $2 - new ref (HEAD)
+# $3 - '0' if only some files are checked out, '1' if branch is checked out
+#
+# To enable this hook, rename this file to "post-checkout".
+
+
+# Enable global debug
+# set -xv
+
+set -uo pipefail
+export VERBOSE=1
+export ERROR_CODE=0
+export TMP_FILE="$(mktemp)"
+
+trap cleanup EXIT SIGHUP SIGINT SIGQUIT SIGTERM
+
+function cleanup() {
+    rm -fr $TMP_FILE
+    exit $ERROR_CODE
+}
+
+function msg_exit() {
+    if [ -z "${1+x}" ]; then
+        msg=""
+    else
+        msg=$1
+    fi
+    if [ -z "${2+x}" ]; then
+        ERROR_CODE=127
+    else
+        ERROR_CODE=$2
+    fi
+    echo -e "$msg"
+    echo -e "Exiting..."
+    exit $ERROR_CODE
+}
+
+function debug() {
+    [ "${VERBOSE}" -eq 1 ] && echo -en "DEBUG: $@"
+}
+
+function msg() {
+    echo -e "$@"
+}
+
+function check_sops() {
+# TODO:
+    return 0
+}
+
+function check_yq() {
+# TODO:
+    return 0
+}
+
+function check_tools() {
+    check_sops
+    check_yq
+}
+
+function is_encrypted() {
+    local file
+    local status
+    # Internal error if no parameter given
+    [ -z "${1+x}" ] && return 127
+    file=$1
+
+    if [ -f "$file" ]; then
+        # Try to decrypt file silently
+        sops -d $file >/dev/null 2>&1
+        status=$?
+        if [ $status -eq 0 ]; then
+            # Encrypted
+            return 0
+        elif [ $status -eq 128 ]; then
+            # Encrypted but cannot be decrypted
+            return 1
+        else
+            # Not encrypted / recognized
+            return 2
+        fi
+    else
+        # Internal error if no such file
+        msg "is_encrypted(): No such file: $file"
+        return 127
+    fi
+}
+
+function postcheckout_encryption_check() {
+    local files_to_merge
+    local files_to_decrypt
+    local config_filename
+    local file_pattern
+    if [ "${1+x}" == "x" ]; then
+        config_filename=$1
+    else
+        config_filename=".secretsencryption-sops.yaml"
+    fi
+
+    files_to_merge=$(git --no-pager ls-tree --name-only -r HEAD)
+    debug "Checked out files:\n${files_to_merge}\n\n"
+    if [ -f "$config_filename" ]; then
+        check_tools
+        file_pattern="($(yq '.creation_rules.[].path_regex' $config_filename | grep -v null | tr '\n' '|' | sed -E 's/\|$//'))"
+        if [ -z "${file_pattern}" ]; then
+            cat <<EOF
+
+Warning: 'path_regex:' is not set in $(pwd)/$config_filename
+NOTHING IS DECRYPTED
+
+See README-secretsencrypton.md for more info.
+See also SOPS documentation: https://github.com/getsops/sops/blob/main/README.rst
+
+Disable commit encryption and get rid of this message using:
+
+    git config --global hooks.secretsencrypton "none"
+
+Use --local option to skip encryption for this repository only.
+EOF
+            exit 1
+        fi
+
+        files_to_decrypt=$(git --no-pager ls-tree --name-only -r HEAD | grep -E ${file_pattern} | grep -vE 'sops.yaml$')
+        debug "Files to decrypt:\n${files_to_decrypt}\n\n"
+
+        for file in $files_to_decrypt; do
+            is_encrypted $file
+            status=$?
+            if [ $status -eq 0 ]; then
+                debug "$file is encrypted and can be decrypted\n"
+                msg "Decrypting ${file}..."
+                sops -d -i $file
+            elif [ $status -eq 1 ]; then
+                debug "$file is encrypted but cannot be decrypted. Do it manually.\n"
+                echo "$file last commited by $(git --no-pager shortlog -1 -ces -- $file)" >> "${TMP_FILE}"
+            else
+                debug "$file is not encrypted\n"
+            fi
+        done
+    fi
+}
+
+args="$*"
+# Redirect output to stderr.
+exec 1>&2
+
+msg "Running post-checkout check..."
+debug "Args=$args\n"
+
+# Check if we are checking out a branch (argument 3 is 1)
+branch_name=$(git --no-pager rev-parse --abbrev-ref HEAD)
+if [ "$3" = 1 ]; then
+    debug "Checking out ${branch_name} branch\n"
+    secretsencrypton=$(git config hooks.secretsencrypton | tr '[:lower:]' '[:upper:]')
+    if [ "${secretsencrypton}" != "NONE" ]; then
+        if [ -z "$secretsencrypton" ]; then
+            cat <<EOF
+Warning: Git config hooks.secretsencrypton is not set but post-checkout hook installed.
+NOTHING IS DECRYPTED, COMMIT ENCRYPTION IS DISABLED.
+
+If you don't want to use auto secrets encryption during commit and
+want to get rid of this message, set:
+
+    git config hooks.secretsencrypton "none"
+
+Otherwise set hooks.secretsencrypton to one of:
+
+    "sops-inline"
+
+Use --global option to setup secrets decryption by default for all checkouts.
+See README-secretsencrypton.md for more info.
+EOF
+        elif [ "${secretsencrypton}" == "SOPS-INLINE" ]; then
+            debug "hooks.secretsencrypton is set to 'sops-inline'\n"
+            postcheckout_encryption_check
+        else
+            cat <<EOF
+
+Warning: Git config hooks.secretsencrypton is set to: $(git config hooks.secretsencrypton)
+This option is not impemented or supported.
+
+NOTHING IS DECRYPTED, COMMIT ENCRYPTION IS DISABLED.
+Use appropriate tools to decrypt secrets manually, if any.
+
+Valid values for git config are:
+
+    "none"
+    "sops-inline"
+
+Set this config variable using:
+
+    git config hooks.secretsencrypton
+
+Use --global option to decrypt secrets while cloning.
+See README-secretsencrypton.md for more info.
+EOF
+        fi
+    fi
+else
+    debug "Checking out files\n"
+fi
+
+undecrypted_files=$(cat ${TMP_FILE})
+if [ -n "${undecrypted_files}" ]; then
+    msg "The following files are encrypted but cannot be decrypted on this system:\n"
+    msg "${undecrypted_files}\n"
+    msg "Please, decrypt them manually or contact with the last encrypted commit author."
+fi
+
+exit 0

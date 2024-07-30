@@ -1,0 +1,316 @@
+#!/bin/bash
+#
+# An example hook script to verify what is about to be committed.
+# Called by "git commit" with no arguments.  The hook should
+# exit with non-zero status after issuing an appropriate message if
+# it wants to stop the commit.
+#
+# To enable this hook, rename this file to "pre-commit".
+#
+# TODO: Refactor to make SOPS one of possible tools
+# Alternatives may be: ansible-vault, age, pgp, etc.
+#
+# TODO: Refactor to make modular: different encryption tools in different sourced files
+#
+
+# Enable global debug
+# set -xv
+set -uo pipefail
+
+export VERBOSE=1
+export ERROR_CODE=0
+export TMP_FILE="$(mktemp)"
+
+trap cleanup EXIT SIGHUP SIGINT SIGQUIT SIGTERM
+
+function cleanup() {
+    rm -fr $TMP_FILE
+    exit $ERROR_CODE
+}
+
+function msg_exit() {
+    if [ -z "${1+x}" ]; then
+        msg=""
+    else
+        msg=$1
+    fi
+    if [ -z "${2+x}" ]; then
+        ERROR_CODE=127
+    else
+        ERROR_CODE=$2
+    fi
+    echo -e "$msg"
+    echo -e "Exiting..."
+    exit $ERROR_CODE
+}
+
+function debug() {
+    [ "${VERBOSE}" -eq 1 ] && echo -en "DEBUG: $@"
+}
+
+function msg() {
+    echo -e "$@"
+}
+
+function check_sops() {
+# TODO:
+    return 0
+}
+
+function check_yq() {
+# TODO:
+    return 0
+}
+
+function check_tools() {
+    check_sops
+    check_yq
+}
+
+function check_ascii() {
+    if git rev-parse --verify HEAD >/dev/null 2>&1
+    then
+        against=HEAD
+    else
+        # Initial commit: diff against an empty tree object
+        against=$(git hash-object -t tree /dev/null)
+    fi
+
+    # If you want to allow non-ASCII filenames set this variable to true.
+    allownonascii=$(git config --type=bool hooks.allownonascii)
+
+    # Cross platform projects tend to avoid non-ASCII filenames; prevent
+    # them from being added to the repository. We exploit the fact that the
+    # printable range starts at the space character and ends with tilde.
+    if [ "$allownonascii" != "true" ] &&
+        # Note that the use of brackets around a tr range is ok here, (it's
+        # even required, for portability to Solaris 10's /usr/bin/tr), since
+        # the square bracket bytes happen to fall in the designated range.
+        test $(git --no-pager diff-index --cached --name-only --diff-filter=A -z $against |
+            LC_ALL=C tr -d '[ -~]\0' | wc -c) != 0
+    then
+        cat <<EOF
+Error: Attempt to add a non-ASCII file name.
+
+This can cause problems if you want to work with people on other platforms.
+
+To be portable it is advisable to rename the file. Use 'git restore --staged <filename>' to remove file from index.
+
+If you know what you are doing you can disable this check using:
+
+    git config hooks.allownonascii true
+EOF
+        exit 1
+    fi
+    # If there are whitespace errors, print the offending file names and fail.
+    # exec git --no-pager diff-index --check --cached $against --
+}
+
+function is_encrypted() {
+    local file
+    local status
+    # Internal error if no parameter given
+    [ -z "${1+x}" ] && return 127
+    file=$1
+
+    if [ -f "$file" ]; then
+        # Try to decrypt file silently
+        sops -d $file >/dev/null 2>&1
+        status=$?
+        if [ $status -eq 0 ]; then
+            # Encrypted
+            return 0
+        elif [ $status -eq 128 ]; then
+            # Encrypted but cannot be decrypted
+            return 1
+        else
+            # Not encrypted / recognized
+            return 2
+        fi
+    else
+        # Internal error if no such file
+        msg "is_encrypted(): No such file: $file"
+        return 127
+    fi
+}
+
+function encrypt_file() {
+    local file
+    [ -z "${1+x}" ] && return 127
+    file=$1
+    local status
+    local nonstrictencryption
+    local filename
+    local file_dirname
+
+    if [ -f "$file" ]; then
+        strictencryption=$(git config --type=bool hooks.strictencryption)
+        filename="$(basename $file)"
+        file_dirname="$(dirname $file)"
+        # It's important to use sops in the file's directory,
+        # so .sops.yaml rules in this directory will take place
+        pushd ${file_dirname} > /dev/null
+        is_encrypted $filename
+        status=$?
+        debug "$filename encryption status=$status"
+        if [ $status -eq 2 ]; then
+            # Otherwise, encrypt it, add to cache and replace with unencrypted version
+            cp -p ${filename} ${filename}.bak
+            sops -e -i ${filename}
+            if [ $? -eq 0 ]; then
+                git add ${filename}
+            else
+                msg "Error encrypting ${filename}: kept unencrypted"
+                if [ "$strictencryption" == "true" ]; then
+                    popd >/dev/null
+                    cat <<EOF
+
+Error: cannot finish commit, strict encryption policy is set.
+It means every encryption attempt must be successfull.
+Correct your SOPS configuration and/or .sops.yaml files
+
+See README-secretsencrypton.md for more info.
+See also SOPS documentation: https://github.com/getsops/sops/blob/main/README.rst
+
+You can disbale strict encryption policy using:
+
+    git config hooks.strictencryption false
+
+Use --global option for configuration by default.
+EOF
+                    mv -f ${filename}.bak ${filename}
+                    exit 1
+                fi
+            fi
+            mv -f ${filename}.bak ${filename}
+            debug "${filename}: encryption successful"
+        fi
+        # If file is already encrypted with SOPS => do nothing
+        # to avoid double encryption
+        popd >/dev/null
+    else
+        msg "encrypt_file(): No such file: $file"
+        return 127
+    fi
+}
+
+function file_pattern_encryption_check() {
+    local _file_pattern
+    local status
+    local commited_files=$(git --no-pager diff --cached --name-only)
+    [ -z "${1+x}" ] && return 127
+    _file_pattern="$1"
+
+    debug "Pre-commit checks for pattern \"${_file_pattern}\" for files...\n"
+    debug "${commited_files}\n"
+
+    git --no-pager diff --cached --name-only | grep -E "$_file_pattern" | grep -vE 'sops.yaml$' | while IFS= read -r line
+    do
+        git show :${line} >/dev/null 2>&1
+        status=$?
+        [ $status -ne 0 ] && continue
+        if [ ! -f ${line} ]; then
+            git show :"${line}" > "${line}"
+            cat <<EOF
+
+Warning: File "${line}" exists only in git cache, probably it was deleted after 'git add' operation
+File was checked out from repository for encryption.
+
+If you really mean to delete it -- use 'git rm'
+EOF
+        fi
+        msg "\nEncrypting ${line}..."
+        encrypt_file "${line}"
+    done
+}
+
+function precommit_encryption_check() {
+    # $1 parameter may contain configuration file name (in .sops.yaml format)
+    # used to choose file patterns in repository for encryption
+    local config_filename
+    local file_pattern
+    if [ "${1+x}" == "x" ]; then
+        config_filename=$1
+    else
+        config_filename=".secretsencryption-sops.yaml"
+    fi
+
+    if [ -f "$config_filename" ]; then
+        file_pattern="($(yq '.creation_rules.[].path_regex' $config_filename | grep -v null | tr '\n' '|' | sed -E 's/\|$//'))"
+    fi
+    if [ -z "${file_pattern}" ]; then
+        cat <<EOF
+
+Warning: $(pwd)/$config_filename file not found and/or
+'path_regex:' in it is not set.
+
+See README-secretsencrypton.md for more info.
+See also SOPS documentation: https://github.com/getsops/sops/blob/main/README.rst
+
+Disable commit encryption and get rid of this message using:
+
+    git config hooks.secretsencrypton "none"
+
+Use --global option for secrets encryption disabled by default.
+EOF
+        exit 1
+    fi
+    file_pattern_encryption_check "${file_pattern}"
+}
+
+function secrets_encryption() {
+    local secretsencrypton
+
+    secretsencrypton=$(git config hooks.secretsencrypton | tr '[:lower:]' '[:upper:]')
+    if [ "${secretsencrypton}" != "NONE" ]; then
+        if [ -z "$secretsencrypton" ]; then
+            cat <<EOF
+Warning: secretsencryption pre-commit hook installed but no config is found.
+COMMIT ENCRYPTION IS DISABLED.
+
+If you don't want to use auto secrets encryption during commit and
+want to get rid of this message, set:
+
+    git config hooks.secretsencrypton "none"
+
+Otherwise set hooks.secretsencrypton to one of:
+    "sops-inline"
+
+Use --global option for secrets encryption enabled/disabled by default.
+See README-secretsencrypton.md for more info.
+EOF
+        elif [ "${secretsencrypton}" == "SOPS-INLINE" ]; then
+            check_tools
+            precommit_encryption_check
+        else
+            cat <<EOF
+
+Warning: COMMIT FAILED
+Git config hooks.secretsencrypton is set to: $(git config hooks.secretsencrypton)
+This option is not impemented or supported.
+Valid values are:
+    "none"
+    "sops-inline"
+
+Set this config variable using:
+
+    git config hooks.secretsencrypton
+
+Use --global option for secrets encryption enabled/disabled by default.
+See README-secretsencrypton.md for more info.
+EOF
+            exit 1
+        fi
+    fi
+}
+
+args="$*"
+# Redirect output to stderr.
+exec 1>&2
+
+msg "Running pre-commit check..."
+debug "Args=$args\n"
+
+secrets_encryption
+
+check_ascii
