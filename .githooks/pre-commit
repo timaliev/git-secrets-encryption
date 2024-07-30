@@ -140,12 +140,13 @@ function encrypt_file() {
     [ -z "${1+x}" ] && return 127
     file=$1
     local status
-    local nonstrictencryption
+    local strictencryption
     local filename
     local file_dirname
 
     if [ -f "$file" ]; then
         strictencryption=$(git config --type=bool hooks.strictencryption)
+        [ -z "${strictencryption+x}" ] && strictencryption="true"
         filename="$(basename $file)"
         file_dirname="$(dirname $file)"
         # It's important to use sops in the file's directory,
@@ -162,7 +163,7 @@ function encrypt_file() {
                 git add ${filename}
             else
                 msg "Error encrypting ${filename}: kept unencrypted"
-                if [ "$strictencryption" == "true" ]; then
+                if [ "${strictencryption}" == "true" ]; then
                     popd >/dev/null
                     cat <<EOF
 
@@ -173,11 +174,11 @@ Correct your SOPS configuration and/or .sops.yaml files
 See README-secretsencrypton.md for more info.
 See also SOPS documentation: https://github.com/getsops/sops/blob/main/README.rst
 
-You can disbale strict encryption policy using:
+You can disbale strict encryption policy for this repository using:
 
     git config hooks.strictencryption false
 
-Use --global option for configuration by default.
+Use --global option to make this default configuration.
 EOF
                     mv -f ${filename}.bak ${filename}
                     exit 1
