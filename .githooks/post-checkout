@@ -138,8 +138,9 @@ EOF
                 msg "Decrypting ${file}..."
                 sops -d -i $file
             elif [ $status -eq 1 ]; then
-                debug "$file is encrypted but cannot be decrypted. Do it manually.\n"
-                echo "$file last commited by $(git --no-pager shortlog -1 -ces -- $file)" >> "${TMP_FILE}"
+                debug "$file is encrypted and cannot be decrypted. Do it manually.\n"
+                author=$(git --no-pager log -1 --format="(%h) commited by \"%cN <%cE>\" on %cD" -- $file)
+                echo "$file $author" >> "${TMP_FILE}"
             else
                 debug "$file is not encrypted\n"
             fi

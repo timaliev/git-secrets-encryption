@@ -157,7 +157,7 @@ function encrypt_file() {
         pushd ${file_dirname} > /dev/null
         is_encrypted $filename
         status=$?
-        debug "$filename encryption status=$status"
+        debug "$filename encryption status=$status\n"
         if [ $status -eq 2 ]; then
             # Encrypt it, add to cache and replace with unencrypted version
             cp -p ${filename} ${filename}.bak
