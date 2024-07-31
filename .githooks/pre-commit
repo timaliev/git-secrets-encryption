@@ -8,17 +8,19 @@
 #
 # To enable this hook, rename this file to "pre-commit".
 #
-# TODO: Refactor to make SOPS one of possible tools
+# TODO: Make SOPS one of possible tools
 # Alternatives may be: ansible-vault, age, pgp, etc.
+# #7 https://github.com/timaliev/git-secrets-encryption/issues/7
 #
-# TODO: Refactor to make modular: different encryption tools in different sourced files
+# TODO: Decompose code by modules
+# #6 https://github.com/timaliev/git-secrets-encryption/issues/6
 #
 
 # Enable global debug
 # set -xv
 set -uo pipefail
 
-export VERBOSE=1
+export VERBOSE=0
 export ERROR_CODE=0
 export TMP_FILE="$(mktemp)"
 
@@ -309,6 +311,12 @@ EOF
 args="$*"
 # Redirect output to stderr.
 exec 1>&2
+
+#3 https://github.com/timaliev/git-secrets-encryption/issues/3
+v=$(git config --type=bool hooks.secretsencryption-debug)
+[ "${v}" = "true" ] && VERBOSE=1
+debug "TEMP_DIR=$TMP_DIR\n"
+debug "TEMP_FILE=$TMP_FILE\n"
 
 msg "Running pre-commit check..."
 debug "Args=$args\n"
