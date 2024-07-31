@@ -44,6 +44,6 @@ Note, that configuration flags are checked without `--global` option for Git, so
 
 `.secretsencryption-sops.yaml` configuration file is needed because we need some way to specify pattern for files that shoud be encrypted (independent of `sops.yaml` configuration) and indicate that secrets encryption is enabled for this particular repository at the same time. There is only one YAML key used in this file: `path_regex`. See example in `example.secretsencryption-sops.yaml`.
 
-Otherwise, `sops` will work normally, using rules from `sops.yaml`, for all files in repository working tree matching the specified patterns in `.secretsencryption-sops.yaml`.
+Otherwise, `sops` will work normally, using rules from `sops.yaml`, for all files in repository working tree matching the specified patterns in `.secretsencryption-sops.yaml`. Note, that sops configuration is out of scope of this document or hooks setup. See [sops documentation](https://github.com/getsops/sops) for more details.
 
 In case of any problematic situation for scripts there will be indicative message during execution.

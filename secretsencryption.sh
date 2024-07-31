@@ -53,16 +53,50 @@ function msg() {
     echo -e "$@"
 }
 
-function check_tools() {
-    local minimal_git_version="2.9.0"
-    local minimal_git_major=$(echo ${minimal_git_version} | cut -d'.' -f 1 )
-    local minimal_git_minor=$(echo ${minimal_git_version} | cut -d'.' -f 2 )
-    local git_version="$(git -v | cut -d' ' -f3)"
-    local git_major=$(echo ${git_version} | cut -d'.' -f 1 )
-    local git_minor=$(echo ${git_version} | cut -d'.' -f 2 )
+function compare_semantic_versions() {
+    # Compare semantic versions in the x.y.z form
+    # Return:
+    #   0 if versions are equal
+    #   1 if version1 is grater the version2
+    #   2 if version2 is grater the version1
+    #   127 if arguments are wrong
+    local version1
+    local version2
+    # Error if exectly two arguments are not present
+    [ -z "${1+x}" ] && return 127
+    version1=$1
+    [ -z "${2+x}" ] && return 127
+    version2=$2
+    # Error if any argument is not in the semantic version form
+    [ -z "$(echo $version1 | grep -E '^\d+\.\d+\.\d+$')" ] && return 127
+    [ -z "$(echo $version2 | grep -E '^\d+\.\d+\.\d+$')" ] && return 127
+    local major1=$(echo ${version1} | cut -d'.' -f 1 )
+    local major2=$(echo ${version2} | cut -d'.' -f 1 )
+    local minor1=$(echo ${version1} | cut -d'.' -f 2 )
+    local minor2=$(echo ${version2} | cut -d'.' -f 2 )
+    local patch1=$(echo ${version1} | cut -d'.' -f 3 )
+    local patch2=$(echo ${version2} | cut -d'.' -f 3 )
 
-    [ ${minimal_git_major} -gt ${git_major} ] || [ ${minimal_git_minor} -gt ${git_minor} ] && \
-        msg_exit "Need git version at least ${minimal_git_version} -> found git version ${git_version}"
+    [ ${major1} -gt ${major2} ] && return 1
+    [ ${major2} -gt ${major1} ] && return 2
+    [ ${minor1} -gt ${minor2} ] && return 1
+    [ ${minor2} -gt ${minor1} ] && return 2
+    [ ${patch1} -gt ${patch2} ] && return 1
+    [ ${patch2} -gt ${patch1} ] && return 2
+    return 0
+}
+
+function check_tools() {
+    local status
+    local minimal_git_version="2.9.0"
+    local git_version="$(git --version | cut -d' ' -f3)"
+
+    debug "Minimal git version needed: ${minimal_git_version}. Checking... "
+    compare_semantic_versions ${minimal_git_version} ${git_version}
+    status=$?
+    [ ${status} -eq 127 ] && msg_exit "check_tools(): Version comparison error"
+    [ ${status} -eq 1 ] && msg_exit "Need git version at least ${minimal_git_version} -> found git version ${git_version}. Please upgrade you Git installation."
+    debug "OK\n"
 }
 
 function get_git_hooks() {
@@ -72,15 +106,34 @@ function get_git_hooks() {
 
 function install_git_hooks() {
     local datetime=$(date -Iseconds)
+    local hooks_version
+    local new_hooks_version
 
     if [ -d "${GITHOOKSDIR}" ]; then
+        debug "Git hooks dir ${GITHOOKSDIR} exists\n"
+        if [ -f "${GITHOOKSDIR}"/VERSION ]; then
+            debug "Git hooks version ${GITHOOKSDIR}/VERSION exists\n"
+            hooks_version="$(cat ${GITHOOKSDIR}/VERSION | grep -E '^\d+\.\d+\.\d+$')"
+            new_hooks_version="$(cat ${TMP_DIR}/VERSION | grep -E '^\d+\.\d+\.\d+$')"
+            if [ -n "${hooks_version}" ] && [ -n "${new_hooks_version}" ]; then
+                compare_semantic_versions ${hooks_version} ${new_hooks_version}
+                status=$?
+                [ ${status} -ne 2 ] && \
+                    msg_exit "Installed hooks version ${hooks_version} is not less then hooks version to be installed ${new_hooks_version}. Cannot continue, lease resolve this manually."
+            else
+                debug "Error checking git hooks versions. Overwriting installation.\n"
+            fi
+        fi
         mv "${GITHOOKSDIR}" "${GITHOOKSDIR}.${datetime}"
         msg "Moved your existing ${GITHOOKSDIR} to ${GITHOOKSDIR}.${datetime}"
         msg "Consider copying you existing scripts to ${GITHOOKSDIR} manually."
     fi
     mkdir "${GITHOOKSDIR}" && chmod 755 "${GITHOOKSDIR}"
     mv $TMP_DIR/.githooks/* "${GITHOOKSDIR}"
-    chmod -R +x "${GITHOOKSDIR}"
+    mv $TMP_DIR/LICENSE "${GITHOOKSDIR}"
+    mv $TMP_DIR/VERSION "${GITHOOKSDIR}"
+    mv $TMP_DIR/example.secretsencryption-sops.yaml "${GITHOOKSDIR}"
+    mv $TMP_DIR/README.md "${GITHOOKSDIR}/README-secretsencrypton.md"
 }
 
 function configure_git() {
@@ -100,6 +153,8 @@ function configure_git() {
 
 v=$(git config --type=bool hooks.secretsencryption-debug)
 [ "${v}" = "true" ] && VERBOSE=1
+debug "TEMP_DIR=$TMP_DIR\n"
+debug "TEMP_FILE=$TMP_FILE\n"
 check_tools
 get_git_hooks
 install_git_hooks
