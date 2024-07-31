@@ -50,6 +50,10 @@ Otherwise, `sops` will work normally, using rules from `sops.yaml`, for all file
 
 In case of any problematic situation for scripts there will be indicative message during execution.
 
+## Testing
+
+You can safely test this Git hooks on [test repository](https://github.com/timaliev/test-git-secrets-encryption).
+
 ## Credits
 
 Inspired by this post [Zev Averbach: Oops, I Did It Again: Automatically Encrypting Secrets](https://zev.averba.ch/oops)
