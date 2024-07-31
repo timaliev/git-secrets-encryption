@@ -23,6 +23,7 @@ set -uo pipefail
 export VERBOSE=0
 export ERROR_CODE=0
 export TMP_FILE="$(mktemp)"
+export TMP_DIR="$(mktemp -d)"
 
 trap cleanup EXIT SIGHUP SIGINT SIGQUIT SIGTERM
 
@@ -158,7 +159,7 @@ function encrypt_file() {
         status=$?
         debug "$filename encryption status=$status"
         if [ $status -eq 2 ]; then
-            # Otherwise, encrypt it, add to cache and replace with unencrypted version
+            # Encrypt it, add to cache and replace with unencrypted version
             cp -p ${filename} ${filename}.bak
             sops -e -i ${filename}
             if [ $? -eq 0 ]; then
