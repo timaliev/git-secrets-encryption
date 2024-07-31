@@ -4,7 +4,7 @@
 
 ## Abstract
 
-Automatically encrypt and decrypt secrets in git repository on clone, commit and pull/merge
+Automatically encrypt and decrypt secrets in git repository on clone, commit and pull/merge. Files which you choose to protect are encrypted when committed, and decrypted when checked out. Developers without the secret key can still clone and commit to a repository with encrypted files.
 
 ## Prerequisites
 
@@ -12,7 +12,7 @@ Automatically encrypt and decrypt secrets in git repository on clone, commit and
 2. [sops v3.0.0+](https://github.com/getsops/sops)
 3. [yq](https://pypi.org/project/yq/)
 
-If something is missing, installation will abort with apropriate message.
+If something is missing, installation will abort with apropriate message (WIP [#4](https://github.com/timaliev/git-secrets-encryption/issues/4)).
 
 ## Installation
 
@@ -25,6 +25,8 @@ For now setup is working only with `sops` assisted encryption. See `sops --help`
 ## Usage
 
 Basically, the process for developers is the same as usual: clone, commit, pull, and push. Some (or all, depending on your configuration) files are transparently encrypted when committed and decrypted when pulled or merged. The only special thing to note is the Git status. Encrypted files will always be marked as "modified" because they are stored encrypted in Git and decrypted after checkout.
+
+Also it's not possible to get meaninful diff for protected files. But since `sops` is used it's not that important for INI, YAML and JSON files as it's possible to protect only some fields.
 
 The result is that all secrets in Git, and therefore in the remote repository, are encrypted and only accessible to developers who have the encryption key.
 
@@ -47,3 +49,5 @@ Note, that configuration flags are checked without `--global` option for Git, so
 Otherwise, `sops` will work normally, using rules from `sops.yaml`, for all files in repository working tree matching the specified patterns in `.secretsencryption-sops.yaml`. Note, that sops configuration is out of scope of this document or hooks setup. See [sops documentation](https://github.com/getsops/sops) for more details.
 
 In case of any problematic situation for scripts there will be indicative message during execution.
+
+## Credits

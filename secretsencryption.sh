@@ -24,8 +24,8 @@ function interrupted() {
 }
 
 function cleanup() {
-    rm -fr $TMP_FILE
-    rm -fr $TMP_DIR
+    rm -fr "$TMP_FILE"
+    rm -fr "$TMP_DIR"
     exit $ERROR_CODE
 }
 
@@ -112,14 +112,15 @@ function install_git_hooks() {
     if [ -d "${GITHOOKSDIR}" ]; then
         debug "Git hooks dir ${GITHOOKSDIR} exists\n"
         if [ -f "${GITHOOKSDIR}"/VERSION ]; then
-            debug "Git hooks version ${GITHOOKSDIR}/VERSION exists\n"
+            debug "Git hooks version file ${GITHOOKSDIR}/VERSION exists\n"
             hooks_version="$(cat ${GITHOOKSDIR}/VERSION | grep -E '^\d+\.\d+\.\d+$')"
             new_hooks_version="$(cat ${TMP_DIR}/VERSION | grep -E '^\d+\.\d+\.\d+$')"
+            debug "Installed version: ${hooks_version} New version: ${new_hooks_version}\n"
             if [ -n "${hooks_version}" ] && [ -n "${new_hooks_version}" ]; then
                 compare_semantic_versions ${hooks_version} ${new_hooks_version}
                 status=$?
                 [ ${status} -ne 2 ] && \
-                    msg_exit "Installed hooks version ${hooks_version} is not less then hooks version to be installed ${new_hooks_version}. Cannot continue, lease resolve this manually."
+                    msg_exit "Installed hooks version ${hooks_version} is not less then hooks version to be installed ${new_hooks_version}. Cannot continue, please resolve this manually."
             else
                 debug "Error checking git hooks versions. Overwriting installation.\n"
             fi
@@ -155,6 +156,7 @@ v=$(git config --type=bool hooks.secretsencryption-debug)
 [ "${v}" = "true" ] && VERBOSE=1
 debug "TEMP_DIR=$TMP_DIR\n"
 debug "TEMP_FILE=$TMP_FILE\n"
+
 check_tools
 get_git_hooks
 install_git_hooks
