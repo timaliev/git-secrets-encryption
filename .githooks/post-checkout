@@ -27,71 +27,8 @@ function cleanup() {
     exit $ERROR_CODE
 }
 
-function msg_exit() {
-    if [ -z "${1+x}" ]; then
-        msg=""
-    else
-        msg=$1
-    fi
-    if [ -z "${2+x}" ]; then
-        ERROR_CODE=127
-    else
-        ERROR_CODE=$2
-    fi
-    echo -e "$msg"
-    echo -e "Exiting..."
-    exit $ERROR_CODE
-}
-
-function debug() {
-    [ "${VERBOSE}" -eq 1 ] && echo -en "DEBUG: $@"
-}
-
-function msg() {
-    echo -e "$@"
-}
-
-function check_sops() {
-    return 0
-}
-
-function check_yq() {
-    return 0
-}
-
-function check_tools() {
-# https://github.com/timaliev/git-secrets-encryption/issues/4
-    check_sops
-    check_yq
-}
-
-function is_encrypted() {
-    local file
-    local status
-    # Internal error if no parameter given
-    [ -z "${1+x}" ] && return 127
-    file=$1
-
-    if [ -f "$file" ]; then
-        # Try to decrypt file silently
-        sops -d $file >/dev/null 2>&1
-        status=$?
-        if [ $status -eq 0 ]; then
-            # Encrypted
-            return 0
-        elif [ $status -eq 128 ]; then
-            # Encrypted but cannot be decrypted
-            return 1
-        else
-            # Not encrypted / recognized
-            return 2
-        fi
-    else
-        # Internal error if no such file
-        msg "is_encrypted(): No such file: $file"
-        return 127
-    fi
-}
+# Source common functions
+. $(dirname $0)/global_functions.sh
 
 function postcheckout_encryption_check() {
     local files_to_merge
@@ -107,7 +44,6 @@ function postcheckout_encryption_check() {
     files_to_merge=$(git --no-pager ls-tree --name-only -r HEAD)
     debug "Checked out files:\n${files_to_merge}\n\n"
     if [ -f "$config_filename" ]; then
-        check_tools
         file_pattern="($(yq '.creation_rules.[].path_regex' $config_filename | grep -v null | tr '\n' '|' | sed -E 's/\|$//'))"
         if [ -z "${file_pattern}" ]; then
             cat <<EOF
@@ -218,7 +154,7 @@ undecrypted_files=$(cat ${TMP_FILE})
 if [ -n "${undecrypted_files}" ]; then
     msg "The following files are encrypted but cannot be decrypted on this system:\n"
     msg "${undecrypted_files}\n"
-    msg "Please, decrypt them manually or contact with the last encrypted commit author."
+    msg "Please, decrypt them manually or contact last encrypted commit author."
 fi
 
 exit 0

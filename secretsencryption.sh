@@ -29,75 +29,7 @@ function cleanup() {
     exit $ERROR_CODE
 }
 
-function msg_exit() {
-    if [ -z "${1+x}" ]; then
-        msg=""
-    else
-        msg=$1
-    fi
-    if [ -z "${2+x}" ]; then
-        ERROR_CODE=127
-    else
-        ERROR_CODE=$2
-    fi
-    echo -e "$msg"
-    echo -e "Exiting..."
-    exit $ERROR_CODE
-}
-
-function debug() {
-    [ "${VERBOSE}" -eq 1 ] && echo -en "DEBUG: $@"
-}
-
-function msg() {
-    echo -e "$@"
-}
-
-function compare_semantic_versions() {
-    # Compare semantic versions in the x.y.z form
-    # Return:
-    #   0 if versions are equal
-    #   1 if version1 is grater the version2
-    #   2 if version2 is grater the version1
-    #   127 if arguments are wrong
-    local version1
-    local version2
-    # Error if exectly two arguments are not present
-    [ -z "${1+x}" ] && return 127
-    version1=$1
-    [ -z "${2+x}" ] && return 127
-    version2=$2
-    # Error if any argument is not in the semantic version form
-    [ -z "$(echo $version1 | grep -E '^\d+\.\d+\.\d+$')" ] && return 127
-    [ -z "$(echo $version2 | grep -E '^\d+\.\d+\.\d+$')" ] && return 127
-    local major1=$(echo ${version1} | cut -d'.' -f 1 )
-    local major2=$(echo ${version2} | cut -d'.' -f 1 )
-    local minor1=$(echo ${version1} | cut -d'.' -f 2 )
-    local minor2=$(echo ${version2} | cut -d'.' -f 2 )
-    local patch1=$(echo ${version1} | cut -d'.' -f 3 )
-    local patch2=$(echo ${version2} | cut -d'.' -f 3 )
-
-    [ ${major1} -gt ${major2} ] && return 1
-    [ ${major2} -gt ${major1} ] && return 2
-    [ ${minor1} -gt ${minor2} ] && return 1
-    [ ${minor2} -gt ${minor1} ] && return 2
-    [ ${patch1} -gt ${patch2} ] && return 1
-    [ ${patch2} -gt ${patch1} ] && return 2
-    return 0
-}
-
-function check_tools() {
-    local status
-    local minimal_git_version="2.9.0"
-    local git_version="$(git --version | cut -d' ' -f3)"
-
-    debug "Minimal git version needed: ${minimal_git_version}. Checking... "
-    compare_semantic_versions ${minimal_git_version} ${git_version}
-    status=$?
-    [ ${status} -eq 127 ] && msg_exit "check_tools(): Version comparison error"
-    [ ${status} -eq 1 ] && msg_exit "Need git version at least ${minimal_git_version} -> found git version ${git_version}. Please upgrade you Git installation."
-    debug "OK\n"
-}
+. $(dirname $0)/.githooks/global_functions.sh
 
 function get_git_hooks() {
     git clone https://github.com/timaliev/git-secrets-encryption.git ${TMP_DIR}
@@ -144,7 +76,7 @@ function configure_git() {
     git config --global core.hooksPath "${GITHOOKSDIR}"
     if [ -n "${hooks_dir}" ] && [ ! "${hooks_dir}" = "${GITHOOKSDIR}" ]; then
         msg "Set core.hooksPath=${GITHOOKSDIR} with git config, but"
-        msg "It was configured to ${hooks_dir}"
+        msg "it was configured to ${hooks_dir}"
         msg "Consider copying you scripts to ${GITHOOKSDIR} manually."
     fi
     git config --global hooks.secretsencrypton "sops-inline"
@@ -157,7 +89,9 @@ v=$(git config --type=bool hooks.secretsencryption-debug)
 debug "TEMP_DIR=$TMP_DIR\n"
 debug "TEMP_FILE=$TMP_FILE\n"
 
+# Sourced global function
 check_tools
+
 get_git_hooks
 install_git_hooks
 configure_git
