@@ -12,7 +12,7 @@ Automatically encrypt and decrypt secrets in git repository on clone, commit and
 2. [sops v3.0.0+](https://github.com/getsops/sops)
 3. [yq](https://pypi.org/project/yq/)
 
-If something is missing, installation will abort with apropriate message (WIP [#4](https://github.com/timaliev/git-secrets-encryption/issues/4)).
+If something is missing, installation will abort with apropriate message.
 
 ## Installation
 
@@ -32,23 +32,29 @@ The result is that all secrets in Git, and therefore in the remote repository, a
 
 ## Configuration
 
-There are some `git config` parameters and one configuration file: `.secretsencryption-sops.yaml`. Configuration parameters are set via `git config` (see git-config(1))
+There are few `git config` parameters and one configuration file: `.secretsencryption-sops.yaml`. Configuration parameters are set via `git config` (see `git-config(1)`)
 
 ### Parameters description
 
 - hooks.secretsencrypton -- enable or disable secrets encryption per repository or globally. For now only "none" and "sops-inline" are supported. If you want secrets decryption during clone operations this must be set globally. Presence of `.secretsencryption-sops.yaml` configuration file in the repository root in conjunction with not "none" value of this flag is needed to turn secrets encryption/decryption on for this repository. This flag will be configured to "sops-inline" by installation script. If it's empty, warning message will be shown on git clone/pull/commit operations but encryption wont be enabled.
-- hooks.strictencryption -- set this flag to `false` to allow unencrypted commits (if encryption process is failed for some or all files). By default flag is unset which means `true`. If you want to be able to commit unencrypted files because encryption failed, set it to `false`.
-- hooks.secretsencryption-debug -- turn on verbosity for hooks during execution. By default flag is not present and it means verbosity is turned off. You can turn it on based on repository or globally. Local git config settings (by repository) always have priority over global settings.
+- hooks.strictencryption -- allow unencrypted commits (if encryption process is failed for some or all files). By default flag is unset which is equivalent to `true`. If you want to be able to commit unencrypted files because encryption failed, set it to `false`. Warning: this may lead to unencrypted secrets in Git repositories.
+- hooks.secretsencryption-debug -- turn on verbosity for hooks during execution. By default flag is not present and it is equivalent to `false` (verbosity is turned off). You can turn it on based on repository or globally.
 
-Note, that configuration flags are checked without `--global` option for Git, so local configuration of repository is having precidence over global.
+Note, that configuration flags are checked in code without `--global` option for Git, so local configuration of repository is having precidence over global.
+
+In case of any problematic situation for scripts there will be indicative message during execution.
 
 ### Configuration file description
 
-`.secretsencryption-sops.yaml` configuration file is needed because we need some way to specify pattern for files that shoud be encrypted (independent of `sops.yaml` configuration) and indicate that secrets encryption is enabled for this particular repository at the same time. There is only one YAML key used in this file: `path_regex`. See example in `example.secretsencryption-sops.yaml`.
+The `.secretsencryption-sops.yaml` file is needed in order to specify a pattern for files that should be encrypted (independently of the `.sops.yaml` configuration). This is because specifying a path regex in `.sops.yaml` would encrypt the whole matching file, rather than just the chosen JSON/YAML/INI keys. If `.secretsencryption-sops.yaml` file is not present or misconfigured, encryption is disabled for this repository and apropriate message is displayed during commit and merge git operations.
 
-Otherwise, `sops` will work normally, using rules from `sops.yaml`, for all files in repository working tree matching the specified patterns in `.secretsencryption-sops.yaml`. Note, that sops configuration is out of scope of this document or hooks setup. See [sops documentation](https://github.com/getsops/sops) for more details.
+The only YAML key used in `.secretsencryption-sops.yaml` is `path_regex`, which can be seen in the example file `example.secretseencryption-sops.yaml`.
 
-In case of any problematic situation for scripts there will be indicative message during execution.
+`sops` would work normally, using the rules from the `.sops.yaml` for all files in the repository that match the specified patterns. Note that the sops configuration is outside the scope of this document and hooks setup. For more information, see the [sops documentation](https://github.com/getops/sops).
+
+Note also that for every file in the working tree that matches the `path_regex` pattern in the `.secretsencryption-sops.yaml` file, `sops` will be run from the corresponding directory that contains this file. This allows for custom `sops` configurations to be defined in the `.sops.yaml` file for each directory.
+
+You can see example of such setup in the testing example repository (available in the "Testing" section). There are three similar YAML files with users information (users.yaml, sub/more-users.yaml, and sub/secrets/users.yaml) and they are all encrypted differently according to the `.sops.yaml` settings in their respective directories.
 
 ## Testing
 

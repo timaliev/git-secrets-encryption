@@ -222,6 +222,9 @@ Use --global option for secrets encryption enabled/disabled by default.
 See README-secretsencrypton.md for more info.
 EOF
         elif [ "${secretsencrypton}" == "SOPS-INLINE" ]; then
+            echo '{"key": "value"}' | sops -e /dev/stdin
+            status=$?
+            [ $status -ne 0 ] && msg_exit "Error: Cannot use encryption -- sops misconfigured."
             precommit_encryption_check
         else
             cat <<EOF
