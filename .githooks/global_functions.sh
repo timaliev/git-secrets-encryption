@@ -3,6 +3,8 @@
 #
 # Common functions to be sourced and used in git hooks
 #
+# set -xv
+# VERBOSE=1
 
 function msg_exit() {
     if [ -z "${1+x}" ]; then
@@ -109,6 +111,30 @@ function check_tools() {
     check_yq
 }
 
+is_sops_encryption_working() {
+    echo '{"key": "value"}' | sops -e /dev/stdin >/dev/null 2>&1
+    status=$?
+    if [ $status -ne 0 ]; then
+        debug "Error: Cannot use sops encryption -- sops misconfigured.\n"
+    else
+        debug "sops encryption works OK.\n"
+    fi
+    return ${status}
+}
+
+is_encryption_working() {
+    local secretsencrypton
+
+    secretsencrypton="$(git config hooks.secretsencrypton | tr '[:lower:]' '[:upper:]')"
+    debug "is_encryption_working(): secretsencrypton=${secretsencrypton}\n"
+    if [ "${secretsencrypton}" = "SOPS-INLINE" ]; then
+        is_sops_encryption_working
+        return
+    else
+        return 127
+    fi
+}
+
 function is_encrypted() {
     local file
     local status
@@ -137,4 +163,30 @@ function is_encrypted() {
     fi
 }
 
-debug "Sourced common functions for git hooks"
+strict_encryption_check() {
+    local strictencryption=$(git config --type=bool hooks.strictencryption)
+
+    [ -z "${strictencryption+x}" ] && strictencryption="true"
+    if [ "${strictencryption}" == "true" ]; then
+        cat <<EOF
+
+Warning: strict encryption policy is set.
+It means every encryption attempt must be successfull.
+Check your SOPS configuration and/or .sops.yaml files.
+
+See README-secretsencrypton.md for more info.
+See also SOPS documentation: https://github.com/getsops/sops/blob/main/README.rst
+
+You can disbale strict encryption policy for this repository using:
+
+    git config hooks.strictencryption false
+
+Use --global option to make this default configuration.
+EOF
+        return 1
+    fi
+    return 0
+}
+
+debug "Sourced common functions for git hooks\n"
+# set +xv
