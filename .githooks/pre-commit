@@ -208,7 +208,7 @@ See README-secretsencrypton.md for more info.
 EOF
         elif [ "${secretsencrypton}" == "SOPS-INLINE" ]; then
             is_sops_encryption_working
-            if [ $? -eq 0 ]
+            if [ $? -eq 0 ]; then
                 precommit_encryption_check
             else
                 msg "Error in secrets encryption ($0): sops encryption is misconfigured"
