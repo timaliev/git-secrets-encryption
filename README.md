@@ -1,3 +1,5 @@
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/timaliev/git-secrets-encryption/blob/master/README.md)
+
 # Secrets encryption for Git
 
 [//]: # "SPDX-License-Identifier: MIT"
@@ -5,6 +7,15 @@
 ## Abstract
 
 Automatically encrypt and decrypt secrets in git repository on clone, commit and pull/merge. Files which you choose to protect are encrypted when committed, and decrypted when checked out. Developers without the secret key can still clone and commit to a repository with encrypted files.
+
+## WARNING: WORK IN PROGRESS
+
+This is work in progress. Current version has this known limitations:
+
+1. All encrypted files has status 'modified' right after commit. This is because files are normally encrypted only in git repository. You can change this manually encrypting them in working tree, but they will be unencrypted on next `git pull` or `git checkout`. There is an issue [#26](https://github.com/timaliev/git-secrets-encryption/issues/26) to workaround this bug.
+1. Because of previous item, it is not possible to `git diff` as file in working tree is unencrypted and is encrypted in git index. There is an issue [#9](https://github.com/timaliev/git-secrets-encryption/issues/9) to work around this bug.
+1. Overall, in `git status` output it is not possible to differentiate between files you have changed and all encrypted files. Current workaround is to keep secret files in particular directory, for instance `/secrets`, so it would be easer to visually find encrypted files.
+1. Many git operations, for instance all diff-based like `git merge`, are not tested and probably are not working.
 
 ## Prerequisites
 
@@ -16,7 +27,7 @@ If something is missing, installation will abort with apropriate message.
 
 ## Installation
 
-`$ curl -sS https://raw.githubusercontent.com/timaliev/git-secrets-encryption/master/secretsencryption.sh | /bin/bash`
+`curl -sS https://raw.githubusercontent.com/timaliev/git-secrets-encryption/master/secretsencryption.sh | /bin/bash`
 
 This will install Git hooks from `.githooks` to your home directory and set global `core.hooksPath` to it (supported by Git v2.9.0 and later). If you have existing Git hooks directory with the same name it will be backed up and you will be informed during installation.
 
@@ -59,6 +70,10 @@ You can see example of such setup in the testing example repository (available i
 ## Testing
 
 You can safely test this Git hooks on [test repository](https://github.com/timaliev/test-git-secrets-encryption).
+
+## Support
+
+Only latest version is supported. Please, file an [issue](https://github.com/timaliev/git-secrets-encryption/issues/new/choose) or [PR](https://github.com/timaliev/git-secrets-encryption/compare) on GitHub.
 
 ## Credits
 
