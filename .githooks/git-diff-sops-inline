@@ -1,0 +1,54 @@
+#!/bin/bash
+#
+# Enable global debug
+# set -xv
+
+# Redirect stderr to stdout.
+# exec 2>&1
+
+if [ $# -eq 0 ]; then
+    echo "$0: No parameters given" && exit 1
+elif [ $# -eq 1 ]; then
+    # Adding new file
+    exit 0
+fi
+
+for var in path oldfile oldhex oldmode newfile newhex newmode; do
+    [ -z "${1+x}" ] && echo "$0: Wrong number of parameters" && exit 1
+    eval "${var}=$1"
+    # echo "${var}=${!var}"
+    shift
+done
+
+# echo "Git diff for: $path $oldfile $oldhex $oldmode $newfile $newhex $newmode"
+
+# is_oldfile_in_index=1
+# [ -z "$(echo $oldhex | LC_ALL=C tr -d 0)" ] && is_oldfile_in_index=0
+# is_newfile_in_index=1
+# [ -z "$(echo $newhex | LC_ALL=C tr -d 0)" ] && is_newfile_in_index=0
+
+# olddirname=$(dirname $oldfile)
+# newdirname=$(dirname $newfile)
+# pushd $(dirname $path) >/dev/null
+# [ ${is_oldfile_in_index} -eq 1 ] && sops -d $oldfile >/dev/null 2>&1 && sops -d -i $oldfile
+# [ ${is_newfile_in_index} -eq 1 ] && sops -d $newfile >/dev/null 2>&1 && sops -d -i $newfile
+sops -d $oldfile >/dev/null 2>&1 && sops -d -i $oldfile
+sops -d $newfile >/dev/null 2>&1 && sops -d -i $newfile
+# popd >/dev/null
+
+filedirname=$(dirname $path)
+oldfilename=$(basename $oldfile)
+newfilename=$(basename $newfile)
+
+TEMP_DIR=$(mktemp -d)
+mkdir -p ${TEMP_DIR}/{a,b}/$filedirname
+oldfile1=a/${filedirname}/$oldfilename
+newfile1=b/${filedirname}/$newfilename
+cp -p $oldfile ${TEMP_DIR}/$oldfile1
+cp -p $newfile ${TEMP_DIR}/$newfile1
+
+pushd $TEMP_DIR >/dev/null
+git --no-pager diff --no-index $oldfile1 $newfile1
+popd >/dev/null
+rm -rf $TEMP_DIR
+exit 0
