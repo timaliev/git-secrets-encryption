@@ -68,6 +68,7 @@ EOF
 
         for file in $files_to_decrypt; do
             # Add file to .gitattributes then try to decrypt it
+            # Remove before add to ensure single entry with latest configuration
             remove_from_gitattributes "$file"
             add_to_gitattributes "$file"
             is_encrypted "$file"

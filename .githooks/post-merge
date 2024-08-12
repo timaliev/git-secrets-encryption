@@ -66,6 +66,10 @@ EOF
         debug "Files to decrypt:\n${files_to_decrypt}\n\n"
 
         for file in $files_to_decrypt; do
+            # Update file status in .gitattributes
+            # Remove before add to ensure single entry with latest configuration
+            remove_from_gitattributes "$file"
+            add_to_gitattributes "$file"
             is_encrypted $file
             status=$?
             if [ $status -eq 0 ]; then

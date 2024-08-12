@@ -84,8 +84,6 @@ function encrypt_file() {
     local filename
     local file_dirname
 
-    # Add to .gitattributes
-    add_to_gitattributes "$file"
     if [ -f "$file" ]; then
         strictencryption=$(git config --type=bool hooks.strictencryption)
         [ -z "${strictencryption+x}" ] && strictencryption="true"
@@ -114,10 +112,14 @@ function encrypt_file() {
             fi
             mv -f "${filename}.bak" "${filename}"
             popd >/dev/null
-            debug "${file}: encryption successful\n"
         fi
         # If file is already encrypted with SOPS => do nothing
         # to avoid double encryption
+        # Add file to .gitattributes
+        # Remove before add to ensure single entry with latest configuration
+        remove_from_gitattributes "$file"
+        add_to_gitattributes "$file"
+        debug "${file}: encryption finished\n"
     else
         msg "encrypt_file(): No such file: \"${file}\""
         return 127
