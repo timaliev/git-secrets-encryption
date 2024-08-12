@@ -39,7 +39,7 @@ function compare_semantic_versions() {
     #   127 if arguments are wrong
     local version1
     local version2
-    # Error if exectly two arguments are not present
+    # Error if exactly two arguments are not present
     [ -z "${1+x}" ] && return 127
     version1=$1
     [ -z "${2+x}" ] && return 127
@@ -171,13 +171,13 @@ strict_encryption_check() {
         cat <<EOF
 
 Warning: strict encryption policy is set.
-It means every encryption attempt must be successfull.
+It means every encryption attempt must be successful.
 Check your SOPS configuration and/or .sops.yaml files.
 
 See README-secretsencrypton.md for more info.
 See also SOPS documentation: https://github.com/getsops/sops/blob/main/README.rst
 
-You can disbale strict encryption policy for this repository using:
+You can disable strict encryption policy for this repository using:
 
     git config hooks.strictencryption false
 
@@ -186,6 +186,48 @@ EOF
         return 1
     fi
     return 0
+}
+
+function add_to_gitattributes() {
+    local file
+    local status
+    local secretsencrypton
+    # Internal error if no parameter given
+    [ -z "${1+x}" ] && return 127
+    file=$1
+    secretsencrypton=$(git config hooks.secretsencrypton | tr '[:lower:]' '[:upper:]')
+
+    debug "Adding diff line for $file into .gitattributes...\n"
+    if [ -f .gitattributes ]; then
+        if grep "^${file} diff=" .gitattributes; then
+            debug "\n$file already in .gitattributes line #$(grep -n "^${file} diff=" .gitattributes | cut -d: -f1)\n"
+            return 0
+        fi
+    fi
+    if [ "${secretsencrypton}" == "SOPS-INLINE" ]; then
+        debug "$file diff=sops\n"
+        echo -ne "\n$file diff=sops" >>.gitattributes
+    fi
+}
+
+function remove_from_gitattributes() {
+    local file
+    local status
+    # Internal error if no parameter given
+    [ -z "${1+x}" ] && return 127
+    file=$1
+
+    if [ ! -f .gitattributes ]; then
+        debug "No .gitattributes file found\n"
+        return 127
+    fi
+    ln_count=$(grep -nE "^${file} diff=" .gitattributes | cut -d: -f1 | wc -l)
+    if [ ${ln_count} -eq 0 ]; then
+        debug "No diff line for $file found in .gitattributes\n"
+    else
+        file_slash_escaped=$(echo $file | sed 's/\//\\\//g')
+        sed -E -i '' -e "/^${file_slash_escaped} diff=/d" .gitattributes
+    fi
 }
 
 debug "Sourced common functions for git hooks\n"

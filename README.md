@@ -23,7 +23,7 @@ This is work in progress. Current version has this known limitations:
 2. [sops v3.0.0+](https://github.com/getsops/sops)
 3. [yq](https://pypi.org/project/yq/)
 
-If something is missing, installation will abort with apropriate message.
+If something is missing, installation will abort with appropriate message.
 
 ## Installation
 
@@ -37,7 +37,7 @@ For now setup is working only with `sops` assisted encryption. See `sops --help`
 
 Basically, the process for developers is the same as usual: clone, commit, pull, and push. Some (or all, depending on your configuration) files are transparently encrypted when committed and decrypted when pulled or merged. The only special thing to note is the Git status. Encrypted files will always be marked as "modified" because they are stored encrypted in Git and decrypted after checkout.
 
-Also it's not possible to get meaninful diff for protected files. But since `sops` is used it's not that important for INI, YAML and JSON files as it's possible to protect only some fields.
+Also it's not possible to get meaningful diff for protected files. But since `sops` is used it's not that important for INI, YAML and JSON files as it's possible to protect only some fields.
 
 The result is that all secrets in Git, and therefore in the remote repository, are encrypted and only accessible to developers who have the encryption key.
 
@@ -47,17 +47,18 @@ There are few `git config` parameters and one configuration file: `.secretsencry
 
 ### Parameters description
 
-- hooks.secretsencrypton -- enable or disable secrets encryption per repository or globally. For now only "none" and "sops-inline" are supported. If you want secrets decryption during clone operations this must be set globally. Presence of `.secretsencryption-sops.yaml` configuration file in the repository root in conjunction with not "none" value of this flag is needed to turn secrets encryption/decryption on for this repository. This flag will be configured to "sops-inline" by installation script. If it's empty, warning message will be shown on git clone/pull/commit operations but encryption wont be enabled.
-- hooks.strictencryption -- allow unencrypted commits (if encryption process is failed for some or all files). By default flag is unset which is equivalent to `true`. If you want to be able to commit unencrypted files because encryption failed, set it to `false`. Warning: this may lead to unencrypted secrets in Git repositories.
+- hooks.secretsencrypton -- enable or disable secrets encryption per repository or globally. For now only "none" and "sops-inline" are supported. If you want secrets decryption during clone operations this must be set globally. Presence of `.secretsencryption-sops.yaml` configuration file in the repository root in conjunction with not "none" value of this flag is needed to turn secrets encryption/decryption on for this repository. This flag will be configured globally to "sops-inline" by installation script. If flag is empty, warning message will be shown on git clone/pull/commit operations but encryption wont be enabled.
+- hooks.strictencryption -- allow unencrypted commits (if encryption process is failed for some or all files). By default flag is unset which is equivalent to `true`. If you want to be able to commit unencrypted files (because encryption failed), set it to `false`. Warning: this may lead to unencrypted secrets in Git repositories.
 - hooks.secretsencryption-debug -- turn on verbosity for hooks during execution. By default flag is not present and it is equivalent to `false` (verbosity is turned off). You can turn it on based on repository or globally.
+- diff.sops.command -- this must be set to the the name of diff script (or absolute path to this script) that will be used in `git diff` command for encrypted files. This option will be configured globally to `"${HOME}/.githooks/sops-inline"` by installation script. This functionality
 
-Note, that configuration flags are checked in code without `--global` option for Git, so local configuration of repository is having precidence over global.
+Note, that configuration flags are checked in code without `--global` option for Git, so local configuration of repository is having precedence over global.
 
 In case of any problematic situation for scripts there will be indicative message during execution.
 
 ### Configuration file description
 
-The `.secretsencryption-sops.yaml` file is needed in order to specify a pattern for files that should be encrypted (independently of the `.sops.yaml` configuration). This is because specifying a path regex in `.sops.yaml` would encrypt the whole matching file, rather than just the chosen JSON/YAML/INI keys. If `.secretsencryption-sops.yaml` file is not present or misconfigured, encryption is disabled for this repository and apropriate message is displayed during commit and merge git operations.
+The `.secretsencryption-sops.yaml` file is needed in order to specify a pattern for files that should be encrypted (independently of the `.sops.yaml` configuration). This is because specifying a path regex in `.sops.yaml` would encrypt the whole matching file, rather than just the chosen JSON/YAML/INI keys. If `.secretsencryption-sops.yaml` file is not present or misconfigured, encryption is disabled for this repository and appropriate message is displayed during commit and merge git operations.
 
 The only YAML key used in `.secretsencryption-sops.yaml` is `path_regex`, which can be seen in the example file `example.secretseencryption-sops.yaml`.
 

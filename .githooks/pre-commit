@@ -84,12 +84,14 @@ function encrypt_file() {
     local filename
     local file_dirname
 
+    # Add to .gitattributes
+    add_to_gitattributes "$file"
     if [ -f "$file" ]; then
         strictencryption=$(git config --type=bool hooks.strictencryption)
         [ -z "${strictencryption+x}" ] && strictencryption="true"
-        filename="$(basename $file)"
-        file_dirname="$(dirname $file)"
-        is_encrypted $file
+        filename="$(basename "$file")"
+        file_dirname="$(dirname "$file")"
+        is_encrypted "$file"
         status=$?
         debug "$filename encryption status=$status\n"
         if [ $status -eq 2 ]; then
@@ -97,27 +99,27 @@ function encrypt_file() {
             # It's important to use sops in the file's directory,
             # so .sops.yaml rules in this directory will take place
             pushd ${file_dirname} > /dev/null
-            cp -p ${filename} ${filename}.bak
-            sops -e -i ${filename}
+            cp -p "${filename}" "${filename}.bak"
+            sops -e -i "${filename}"
             if [ $? -eq 0 ]; then
-                git add ${filename}
+                git add "${filename}"
             else
                 msg "Error encrypting ${file}"
                 strict_encryption_check
                 if [ $? -ne 0 ]; then
-                    mv -f ${filename}.bak ${filename}
+                    mv -f "${filename}.bak" "${filename}"
                     popd >/dev/null
                     msg_exit "Cannot finish commit." 1
                 fi
             fi
-            mv -f ${filename}.bak ${filename}
+            mv -f "${filename}.bak" "${filename}"
             popd >/dev/null
-            debug "${file}: encryption successful"
+            debug "${file}: encryption successful\n"
         fi
         # If file is already encrypted with SOPS => do nothing
         # to avoid double encryption
     else
-        msg "encrypt_file(): No such file: $file"
+        msg "encrypt_file(): No such file: \"${file}\""
         return 127
     fi
 }
@@ -125,7 +127,7 @@ function encrypt_file() {
 function file_pattern_encryption_check() {
     local _file_pattern
     local status
-    # local commited_files=$(git --no-pager diff --cached --name-only)
+    # local committed_files=$(git --no-pager diff --cached --name-only)
     [ -z "${1+x}" ] && return 127
     _file_pattern="$1"
 
@@ -218,7 +220,7 @@ EOF
 
 Warning: COMMIT FAILED
 Git config hooks.secretsencrypton is set to: $(git config hooks.secretsencrypton)
-This option is not impemented or supported.
+This option is not implemented or supported.
 Valid values are:
     "none"
     "sops-inline"
