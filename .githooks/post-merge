@@ -70,12 +70,12 @@ EOF
             # Remove before add to ensure single entry with latest configuration
             remove_from_gitattributes "$file"
             add_to_gitattributes "$file"
-            is_encrypted $file
+            is_encrypted "${file}"
             status=$?
             if [ $status -eq 0 ]; then
                 debug "$file is encrypted and can be decrypted\n"
                 msg "Decrypting ${file}..."
-                sops -d -i $file
+                sops -d -i "${file}"
             elif [ $status -eq 1 ]; then
                 debug "$file is encrypted but cannot be decrypted. Do it manually.\n"
                 echo "$file last commited by $(git --no-pager shortlog -1 -ces -- $file)" >> "${TMP_FILE}"

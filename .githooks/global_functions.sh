@@ -199,8 +199,9 @@ function add_to_gitattributes() {
 
     debug "Adding diff line for $file into .gitattributes...\n"
     if [ -f .gitattributes ]; then
-        if grep "^${file} diff=" .gitattributes; then
-            debug "\n$file already in .gitattributes line #$(grep -n "^${file} diff=" .gitattributes | cut -d: -f1)\n"
+        file_slash_escaped=$(echo $file | sed 's/\//\\\//g')
+        if grep -nE "^${file_slash_escaped} (\+?|\-?)diff\=?" .gitattributes; then
+            debug "\n$file already in .gitattributes line #$(grep -nE "^${file_slash_escaped} (\+?|\-?)diff\=?" .gitattributes | cut -d: -f1)\n"
             return 0
         fi
     fi
@@ -221,12 +222,14 @@ function remove_from_gitattributes() {
         debug "No .gitattributes file found\n"
         return 127
     fi
-    ln_count=$(grep -nE "^${file} diff=" .gitattributes | cut -d: -f1 | wc -l)
+    file_slash_escaped=$(echo $file | sed 's/\//\\\//g')
+    ln_count=$(grep -nE "^${file_slash_escaped} (\+?|\-?)diff\=?" .gitattributes | cut -d: -f1 | wc -l)
     if [ ${ln_count} -eq 0 ]; then
         debug "No diff line for $file found in .gitattributes\n"
     else
-        file_slash_escaped=$(echo $file | sed 's/\//\\\//g')
-        sed -E -i '' -e "/^${file_slash_escaped} diff=/d" .gitattributes
+        debug "Found ${ln_count} entries of '$file diff' in .gitattributes. Deleting.\n"
+        # debug "Before sed -E -i '' -e /^${file_slash_escaped} (\+?|\-?)diff\=?/d .gitattributes\n"
+        sed -E -i '' -e "/^${file_slash_escaped} (\+?|\-?)diff\=?/d" .gitattributes 2>/dev/null
     fi
 }
 

@@ -79,6 +79,8 @@ You can safely test this Git hooks on [test repository](https://github.com/timal
 
 Automation testing is WIP (see [#22](https://github.com/timaliev/git-secrets-encryption/issues/22)).
 
+Currently, all testing is done manually on macOS 14.5 Sonoma (M1).
+
 ## Support
 
 Only latest version is supported. If you have any [issues](https://github.com/timaliev/git-secrets-encryption/issues/new/choose) or [pull requests](https://github.com/timaliev/git-secrets-encryption/compare), please file them on GitHub.

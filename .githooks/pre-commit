@@ -137,10 +137,10 @@ function file_pattern_encryption_check() {
 
     git --no-pager diff --cached --name-only | grep -E "$_file_pattern" | grep -vE 'sops.yaml$' | while IFS= read -r line
     do
-        git show :${line} >/dev/null 2>&1
+        git show :"${line}" >/dev/null 2>&1
         status=$?
         [ $status -ne 0 ] && continue
-        if [ ! -f ${line} ]; then
+        if [ ! -f "${line}" ]; then
             git show :"${line}" > "${line}"
             cat <<EOF
 
