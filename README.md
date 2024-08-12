@@ -13,9 +13,8 @@ Automatically encrypt and decrypt secrets in git repository on clone, commit and
 This is work in progress. Current version has this known limitations:
 
 1. All encrypted files has status 'modified' right after commit. This is because files are normally encrypted only in git repository. You can change this manually encrypting them in working tree, but they will be unencrypted on next `git pull` or `git checkout`. There is an issue [#26](https://github.com/timaliev/git-secrets-encryption/issues/26) to workaround this bug.
-1. Because of previous item, it is not possible to `git diff` as file in working tree is unencrypted and is encrypted in git index. There is an issue [#9](https://github.com/timaliev/git-secrets-encryption/issues/9) to work around this bug.
 1. Overall, in `git status` output it is not possible to differentiate between files you have changed and all encrypted files. Current workaround is to keep secret files in particular directory, for instance `/secrets`, so it would be easer to visually find encrypted files.
-1. Many git operations, for instance all diff-based like `git merge`, are not tested and probably are not working.
+1. Many git operations or variants of operations, for instance complex diff-based like `git-merge(1)`, are not tested and may be not working.
 
 ## Prerequisites
 
@@ -50,7 +49,7 @@ There are few `git config` parameters and one configuration file: `.secretsencry
 - hooks.secretsencrypton -- enable or disable secrets encryption per repository or globally. For now only "none" and "sops-inline" are supported. If you want secrets decryption during clone operations this must be set globally. Presence of `.secretsencryption-sops.yaml` configuration file in the repository root in conjunction with not "none" value of this flag is needed to turn secrets encryption/decryption on for this repository. This flag will be configured globally to "sops-inline" by installation script. If flag is empty, warning message will be shown on git clone/pull/commit operations but encryption wont be enabled.
 - hooks.strictencryption -- allow unencrypted commits (if encryption process is failed for some or all files). By default flag is unset which is equivalent to `true`. If you want to be able to commit unencrypted files (because encryption failed), set it to `false`. Warning: this may lead to unencrypted secrets in Git repositories.
 - hooks.secretsencryption-debug -- turn on verbosity for hooks during execution. By default flag is not present and it is equivalent to `false` (verbosity is turned off). You can turn it on based on repository or globally.
-- diff.sops.command -- this must be set to the the name of diff script (or absolute path to this script) that will be used in `git diff` command for encrypted files. This option will be configured globally to `"${HOME}/.githooks/sops-inline"` by installation script. This functionality
+- diff.sops.command -- this must be set to the the name of diff script (or absolute path to this script) that will be used in `git diff` command for encrypted files. This option will be configured globally to `"${HOME}/.githooks/sops-inline"` by installation script. Functionality is explained below in section [Git diff](#git-diff).
 
 Note, that configuration flags are checked in code without `--global` option for Git, so local configuration of repository is having precedence over global.
 
@@ -68,13 +67,23 @@ Note also that for every file in the working tree that matches the `path_regex` 
 
 You can see example of such setup in the testing example repository (available in the "Testing" section). There are three similar YAML files with users information (users.yaml, sub/more-users.yaml, and sub/secrets/users.yaml) and they are all encrypted differently according to the `.sops.yaml` settings in their respective directories.
 
+## Git diff
+
+Git diff works for Git programs that respect the `.gitattributes` file. At the moment, it is the `git` command itself. You can also use any other `git-diff(1)` option. It will show you the difference in the decrypted file content if you are allowed to decrypt the secrets. Otherwise, the differences between encrypted files will be shown. No content is modified in the working tree during the diff, so if your files are usually encrypted, this is a safe operation.
+
+Note that although `git diff` may work correctly (if you have access to the encryption keys), `git status` will still show you that a file with encrypted content has been modified. If you do not want this behavior, you can choose to keep the secret files encrypted in the working tree (see [[#26](https://github.com/timaliev/git-secrets-encryption/issues/26)]).
+
 ## Testing
 
 You can safely test this Git hooks on [test repository](https://github.com/timaliev/test-git-secrets-encryption).
 
+Automation testing is WIP (see [#22](https://github.com/timaliev/git-secrets-encryption/issues/22)).
+
 ## Support
 
-Only latest version is supported. Please, file an [issue](https://github.com/timaliev/git-secrets-encryption/issues/new/choose) or [PR](https://github.com/timaliev/git-secrets-encryption/compare) on GitHub.
+Only latest version is supported. If you have any [issues](https://github.com/timaliev/git-secrets-encryption/issues/new/choose) or [pull requests](https://github.com/timaliev/git-secrets-encryption/compare), please file them on GitHub.
+
+Be aware that `git` is a complex tool and it's distributed nature add even more complexity. Due to the complexity of the tool, it's not feasible to test all use cases, even though it's technically possible. Therefore, **there may be bugs** in the project that could affect even major functionality of the Git system.
 
 ## Credits
 
