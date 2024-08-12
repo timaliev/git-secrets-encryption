@@ -4,7 +4,7 @@
 # Common functions to be sourced and used in git hooks
 #
 # set -xv
-# VERBOSE=1
+export VERBOSE
 
 function msg_exit() {
     if [ -z "${1+x}" ]; then
@@ -28,6 +28,11 @@ function debug() {
 
 function msg() {
     echo -e "$@"
+}
+
+function check_debug() {
+    v=$(git config --type=bool hooks.secretsencryption-debug)
+    [ "${v}" = "true" ] && VERBOSE=1
 }
 
 function compare_semantic_versions() {
