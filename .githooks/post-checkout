@@ -67,15 +67,19 @@ EOF
         debug "Files to decrypt:\n${files_to_decrypt}\n\n"
 
         for file in $files_to_decrypt; do
-            is_encrypted $file
+            # Add file to .gitattributes then try to decrypt it
+            # Remove before add to ensure single entry with latest configuration
+            remove_from_gitattributes "$file"
+            add_to_gitattributes "$file"
+            is_encrypted "$file"
             status=$?
             if [ $status -eq 0 ]; then
                 debug "$file is encrypted and can be decrypted\n"
                 msg "Decrypting ${file}..."
-                sops -d -i $file
+                sops -d -i "$file"
             elif [ $status -eq 1 ]; then
                 debug "$file is encrypted and cannot be decrypted. Do it manually.\n"
-                author=$(git --no-pager log -1 --format="(%h) commited by \"%cN <%cE>\" on %cD" -- $file)
+                author=$(git --no-pager log -1 --format="(%h) committed by \"%cN <%cE>\" on %cD" -- $file)
                 echo "$file $author" >> "${TMP_FILE}"
             else
                 debug "$file is not encrypted\n"
@@ -88,11 +92,13 @@ args="$*"
 # Redirect output to stderr.
 exec 1>&2
 
-#3 https://github.com/timaliev/git-secrets-encryption/issues/3
-v=$(git config --type=bool hooks.secretsencryption-debug)
-[ "${v}" = "true" ] && VERBOSE=1
-debug "TEMP_DIR=$TMP_DIR\n"
-debug "TEMP_FILE=$TMP_FILE\n"
+# https://github.com/timaliev/git-secrets-encryption/issues/3
+# https://github.com/timaliev/git-secrets-encryption/issues/3
+VERBOSE=0
+check_debug
+
+debug "TMP_DIR=$TMP_DIR\n"
+debug "TMP_FILE=$TMP_FILE\n"
 
 msg "Running post-checkout check..."
 debug "Args=$args\n"
@@ -127,7 +133,7 @@ EOF
             cat <<EOF
 
 Warning: Git config hooks.secretsencrypton is set to: $(git config hooks.secretsencrypton)
-This option is not impemented or supported.
+This option is not implemented or supported.
 
 NOTHING IS DECRYPTED, COMMIT ENCRYPTION IS DISABLED.
 Use appropriate tools to decrypt secrets manually, if any.
