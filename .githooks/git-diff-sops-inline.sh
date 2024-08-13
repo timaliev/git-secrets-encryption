@@ -35,8 +35,8 @@ exec 2>&1
 VERBOSE=0
 check_debug
 
-debug "TEMP_DIR=$TMP_DIR\n"
-debug "TEMP_FILE=$TMP_FILE\n"
+debug "TMP_DIR=$TMP_DIR\n"
+debug "TMP_FILE=$TMP_FILE\n"
 
 if [ $# -eq 0 ]; then
     msg_exit "No parameters given" 1
@@ -51,22 +51,22 @@ for var in path oldfile oldhex oldmode newfile newhex newmode; do
     shift
 done
 
-debug "Git diff for: $path $oldfile $oldhex $oldmode $newfile $newhex $newmode"
+debug "Git diff for: $path $oldfile $oldhex $oldmode $newfile $newhex $newmode\n"
 
 filedirname=$(dirname "${path}")
 oldfilename=$(basename "${oldfile}")
 newfilename=$(basename "${newfile}")
 
-mkdir -p ${TEMP_DIR}/{a,b}/"${filedirname}"
+mkdir -p ${TMP_DIR}/{a,b}/"${filedirname}"
 if [ "${oldfile}" != "/dev/null" ]; then
     oldfile1="a/${filedirname}/${oldfilename}"
-    cp -p "${oldfile}" "${TEMP_DIR}/${oldfile1}"
+    cp -p "${oldfile}" "${TMP_DIR}/${oldfile1}"
 else
     oldfile1="${oldfile}"
 fi
 if [ "${newfile}" != "/dev/null" ]; then
     newfile1="b/${filedirname}/${newfilename}"
-    cp -p "${newfile}" "${TEMP_DIR}/${newfile1}"
+    cp -p "${newfile}" "${TMP_DIR}/${newfile1}"
 else
     newfile1="${newfile}"
 fi
@@ -74,12 +74,12 @@ fi
 # Do not change working tree: decrypt files only into temporary directory
 secretsencrypton=$(git config hooks.secretsencrypton | tr '[:lower:]' '[:upper:]')
 if [ "${secretsencrypton}" != "NONE" ]; then
-    sops -d "${oldfile}" >/dev/null 2>&1 && sops -d "${oldfile}" >"${TEMP_DIR}/${oldfile1}"
-    sops -d "${newfile}" >/dev/null 2>&1 && sops -d "${newfile}" >"${TEMP_DIR}/${newfile1}"
+    sops -d "${oldfile}" >/dev/null 2>&1 && sops -d "${oldfile}" >"${TMP_DIR}/${oldfile1}"
+    sops -d "${newfile}" >/dev/null 2>&1 && sops -d "${newfile}" >"${TMP_DIR}/${newfile1}"
 fi
 
-pushd $TEMP_DIR >/dev/null
-debug "git --no-pager diff --no-index ${oldfile1} ${newfile1}"
+pushd $TMP_DIR >/dev/null
+debug "git --no-pager diff --no-index ${oldfile1} ${newfile1}\n"
 git --no-pager diff --no-index "${oldfile1}" "${newfile1}"
 popd >/dev/null
 exit 0

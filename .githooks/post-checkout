@@ -97,8 +97,8 @@ exec 1>&2
 VERBOSE=0
 check_debug
 
-debug "TEMP_DIR=$TMP_DIR\n"
-debug "TEMP_FILE=$TMP_FILE\n"
+debug "TMP_DIR=$TMP_DIR\n"
+debug "TMP_FILE=$TMP_FILE\n"
 
 msg "Running post-checkout check..."
 debug "Args=$args\n"
