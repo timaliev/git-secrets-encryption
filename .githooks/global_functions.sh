@@ -31,6 +31,7 @@ function msg() {
 }
 
 function check_debug() {
+    # https://github.com/timaliev/git-secrets-encryption/issues/3
     v=$(git config --type=bool hooks.secretsencryption-debug)
     [ "${v}" = "true" ] && VERBOSE=1
 }
