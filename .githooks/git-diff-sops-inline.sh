@@ -12,7 +12,6 @@
 # set -xv
 set -uo pipefail
 
-export VERBOSE=0
 export ERROR_CODE=0
 export TMP_FILE="$(mktemp)"
 export TMP_DIR="$(mktemp -d)"

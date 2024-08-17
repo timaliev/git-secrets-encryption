@@ -40,7 +40,7 @@ function postmerge_encryption_check() {
     fi
 
     files_to_merge=$(git --no-pager diff --name-only HEAD@{0} HEAD@{1})
-    debug "Pulled files:\n${files_to_merge}\n\n"
+    # debug "Pulled files:\n${files_to_merge}\n\n"
 
     if [ -f "$config_filename" ]; then
         file_pattern="($(yq '.creation_rules.[].path_regex' $config_filename | grep -v null | tr '\n' '|' | sed -E 's/\|$//'))"
@@ -71,6 +71,7 @@ EOF
             # Remove before add to ensure single entry with latest configuration
             remove_from_gitattributes "$file"
             add_to_gitattributes "$file"
+            [ $REP_LOCKED -eq 1 ] && continue # Do not decrypt -- files are normally encrypted in working tree
             is_encrypted "${file}"
             status=$?
             if [ $status -eq 0 ]; then
@@ -79,7 +80,7 @@ EOF
                 sops -d -i "${file}"
             elif [ $status -eq 1 ]; then
                 debug "$file is encrypted but cannot be decrypted. Do it manually.\n"
-                echo "$file last commited by $(git --no-pager shortlog -1 -ces -- $file)" >> "${TMP_FILE}"
+                echo "$file last committed by $(git --no-pager shortlog -1 -ces -- $file)" >> "${TMP_FILE}"
             else
                 debug "$file is not encrypted\n"
             fi
@@ -94,6 +95,7 @@ exec 1>&2
 # https://github.com/timaliev/git-secrets-encryption/issues/3
 VERBOSE=0
 check_debug
+check_lock
 
 debug "TMP_DIR=$TMP_DIR\n"
 debug "TMP_FILE=$TMP_FILE\n"
@@ -129,7 +131,7 @@ EOF
         cat <<EOF
 
 Warning: Git config hooks.secretsencrypton is set to: $(git config hooks.secretsencrypton)
-This option is not impemented or supported.
+This option is not implemented or supported.
 
 NOTHING IS DECRYPTED, COMMIT ENCRYPTION IS DISABLED.
 Use appropriate tools to decrypt secrets manually, if any.

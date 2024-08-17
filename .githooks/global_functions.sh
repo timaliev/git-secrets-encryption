@@ -4,7 +4,7 @@
 # Common functions to be sourced and used in git hooks
 #
 # set -xv
-export VERBOSE
+export VERBOSE REP_LOCKED
 
 function msg_exit() {
     if [ -z "${1+x}" ]; then
@@ -32,8 +32,22 @@ function msg() {
 
 function check_debug() {
     # https://github.com/timaliev/git-secrets-encryption/issues/3
+    local v
+
     v=$(git config --type=bool hooks.secretsencryption-debug)
     [ "${v}" = "true" ] && VERBOSE=1
+}
+
+function check_lock() {
+    # https://github.com/timaliev/git-secrets-encryption/issues/26
+    local l
+
+    l=$(git config --type=bool hooks.repository-locked)
+    if [ "${l}" = "true" ]; then
+        REP_LOCKED=1
+    else
+        REP_LOCKED=0
+    fi
 }
 
 function compare_semantic_versions() {
