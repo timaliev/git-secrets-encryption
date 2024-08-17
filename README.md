@@ -16,10 +16,22 @@ This is work in progress. Current version has this known limitations:
 1. Overall, in `git status` output it is not possible to differentiate between files you have changed and all encrypted files. Current workaround is to keep secret files in particular directory, for instance `/secrets`, so it would be easer to visually find encrypted files.
 1. Many git operations or variants of operations, for instance complex diff-based like `git-merge(1)`, are not tested and may be not working.
 
+## Why SOPS, why not to use git-crypt?
+
+There is an excellent project [git-crypt](https://github.com/AGWA/git-crypt) which one definitely must check out first, for the purpose of encrypting Git repository content.
+
+Unlike `git-crypt`, this project uses primarily [SOPS](https://getsops.io) and possibly other encryption tools. So, why SOPS?
+
+1. SOPS is an excellent tool, actively maintained under Cloud Native Computing Foundation sandbox project.
+1. SOPS allows to encrypt files partially, based on YAML/JSON/INI key.
+1. SOPS can use different encryption algorithms.
+1. SOPS allows to securely share encryption keys, for example using AWS secrets or GPG. So, whole development team and/or CI/CD pipeline can have access to secrets but not strangers.
+1. In addition, you can recreate encryption with new key (rotate key) simply by adding files to Git's index. Therefore, only current team members who have access to the current encryption key can access the actual secret content. This process can even be automated using CI/CD tools.
+
 ## Prerequisites
 
 1. [git v2.9.0+](https://git-scm.com/downloads)
-2. [sops v3.0.0+](https://github.com/getsops/sops)
+2. [sops v3.0.0+](https://getsops.io/docs/#download)
 3. [yq](https://pypi.org/project/yq/)
 
 If something is missing, installation will abort with appropriate message.
@@ -50,6 +62,7 @@ There are few `git config` parameters and one configuration file: `.secretsencry
 - hooks.strictencryption -- allow unencrypted commits (if encryption process is failed for some or all files). By default flag is unset which is equivalent to `true`. If you want to be able to commit unencrypted files (because encryption failed), set it to `false`. Warning: this may lead to unencrypted secrets in Git repositories.
 - hooks.secretsencryption-debug -- turn on verbosity for hooks during execution. By default flag is not present and it is equivalent to `false` (verbosity is turned off). You can turn it on based on repository or globally.
 - diff.sops.command -- this must be set to the the name of diff script (or absolute path to this script) that will be used in `git diff` command for encrypted files. This option will be configured globally to `"${HOME}/.githooks/git-diff-sops-inline.sh"` by installation script. Functionality is explained below in section [Git diff](#git-diff).
+- hooks.repository-locked -- status of encrypted files in working tree. If this flag is set to `true`, secret files are left encrypted in working tree (besides they are already encrypted in Git's index) even if they can be decrypted. By default flag is unset which is equivalent to `false`. To view or modify file's content they must be decrypted manually. It is convenient to use `sops exec-env` in this mode, if SOPS is used. See [SOPS Documentation](https://getsops.io/docs/) for more details.
 
 Note, that configuration flags are checked in code without `--global` option for Git, so local configuration of repository is having precedence over global.
 
@@ -61,7 +74,7 @@ The `.secretsencryption-sops.yaml` file is needed in order to specify a pattern 
 
 The only YAML key used in `.secretsencryption-sops.yaml` is `path_regex`, which can be seen in the example file `example.secretseencryption-sops.yaml`.
 
-`sops` would work normally, using the rules from the `.sops.yaml` for all files in the repository that match the specified patterns. Note that the sops configuration is outside the scope of this document and hooks setup. For more information, see the [sops documentation](https://github.com/getops/sops).
+`sops` would work normally, using the rules from the `.sops.yaml` for all files in the repository that match the specified patterns. Note that the sops configuration is outside the scope of this document and hooks setup. For more information, see the [sops documentation](https://getsops.io/docs/).
 
 Note also that for every file in the working tree that matches the `path_regex` pattern in the `.secretsencryption-sops.yaml` file, `sops` will be run from the corresponding directory that contains this file. This allows for custom `sops` configurations to be defined in the `.sops.yaml` file for each directory.
 

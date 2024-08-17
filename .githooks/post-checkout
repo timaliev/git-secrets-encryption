@@ -41,7 +41,7 @@ function postcheckout_encryption_check() {
     fi
 
     files_to_merge=$(git --no-pager ls-tree --name-only -r HEAD)
-    debug "Checked out files:\n${files_to_merge}\n\n"
+    # debug "Checked out files:\n${files_to_merge}\n\n"
     if [ -f "$config_filename" ]; then
         file_pattern="($(yq '.creation_rules.[].path_regex' $config_filename | grep -v null | tr '\n' '|' | sed -E 's/\|$//'))"
         if [ -z "${file_pattern}" ]; then
@@ -70,6 +70,7 @@ EOF
             # Remove before add to ensure single entry with latest configuration
             remove_from_gitattributes "$file"
             add_to_gitattributes "$file"
+            [ $REP_LOCKED -eq 1 ] && continue # Do not decrypt -- files are normally encrypted in working tree
             is_encrypted "$file"
             status=$?
             if [ $status -eq 0 ]; then
@@ -93,6 +94,7 @@ exec 1>&2
 
 VERBOSE=0
 check_debug
+check_lock
 
 debug "TMP_DIR=$TMP_DIR\n"
 debug "TMP_FILE=$TMP_FILE\n"
