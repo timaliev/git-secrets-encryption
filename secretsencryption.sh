@@ -62,7 +62,7 @@ function compare_semantic_versions() {
     #   127 if arguments are wrong
     local version1
     local version2
-    # Error if exectly two arguments are not present
+    # Error if exactly two arguments are not present
     [ -z "${1+x}" ] && return 127
     version1=$1
     [ -z "${2+x}" ] && return 127
@@ -185,6 +185,8 @@ function configure_git() {
     git config --global hooks.secretsencrypton "sops-inline"
     debug "git config --global hooks.secretsencrypton=$(git config --global hooks.secretsencrypton)\n"
     debug "git config hooks.strictencryption=$(git config --type=bool hooks.strictencryption)\n"
+    git config --global diff.sops.command "{$HOME}/${GITHOOKSDIR}/git-diff-sops-inline.sh"
+    debug "git config diff.sops.command=$(git config --global diff.sops.command)\n"
 }
 
 v=$(git config --type=bool hooks.secretsencryption-debug)

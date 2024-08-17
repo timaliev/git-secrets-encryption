@@ -2,16 +2,17 @@
 # (SPDX-License-Identifier: MIT)
 #
 # Hook script to do something after repo checkout.
-# Called by "git pull" with arguments:
+# Called by "git pull/checkout" with arguments
 #
 # To enable this hook, rename this file to "post-merge".
-
+#
+# This script will decrypt secret files if it's possible.
+# See README-secretsencrypton.md for more info.
 
 # Enable global debug
 # set -xv
 
 set -uo pipefail
-export VERBOSE=0
 export ERROR_CODE=0
 export TMP_FILE="$(mktemp)"
 export TMP_DIR="$(mktemp -d)"
@@ -39,7 +40,7 @@ function postmerge_encryption_check() {
     fi
 
     files_to_merge=$(git --no-pager diff --name-only HEAD@{0} HEAD@{1})
-    debug "Pulled files:\n${files_to_merge}\n\n"
+    # debug "Pulled files:\n${files_to_merge}\n\n"
 
     if [ -f "$config_filename" ]; then
         file_pattern="($(yq '.creation_rules.[].path_regex' $config_filename | grep -v null | tr '\n' '|' | sed -E 's/\|$//'))"
@@ -66,15 +67,20 @@ EOF
         debug "Files to decrypt:\n${files_to_decrypt}\n\n"
 
         for file in $files_to_decrypt; do
-            is_encrypted $file
+            # Update file status in .gitattributes
+            # Remove before add to ensure single entry with latest configuration
+            remove_from_gitattributes "$file"
+            add_to_gitattributes "$file"
+            [ $REP_LOCKED -eq 1 ] && continue # Do not decrypt -- files are normally encrypted in working tree
+            is_encrypted "${file}"
             status=$?
             if [ $status -eq 0 ]; then
                 debug "$file is encrypted and can be decrypted\n"
                 msg "Decrypting ${file}..."
-                sops -d -i $file
+                sops -d -i "${file}"
             elif [ $status -eq 1 ]; then
                 debug "$file is encrypted but cannot be decrypted. Do it manually.\n"
-                echo "$file last commited by $(git --no-pager shortlog -1 -ces -- $file)" >> "${TMP_FILE}"
+                echo "$file last committed by $(git --no-pager shortlog -1 -ces -- $file)" >> "${TMP_FILE}"
             else
                 debug "$file is not encrypted\n"
             fi
@@ -86,11 +92,13 @@ args="$*"
 # Redirect output to stderr.
 exec 1>&2
 
-#3 https://github.com/timaliev/git-secrets-encryption/issues/3
-v=$(git config --type=bool hooks.secretsencryption-debug)
-[ "${v}" = "true" ] && VERBOSE=1
-debug "TEMP_DIR=$TMP_DIR\n"
-debug "TEMP_FILE=$TMP_FILE\n"
+# https://github.com/timaliev/git-secrets-encryption/issues/3
+VERBOSE=0
+check_debug
+check_lock
+
+debug "TMP_DIR=$TMP_DIR\n"
+debug "TMP_FILE=$TMP_FILE\n"
 
 msg "Running post-merge check..."
 debug "Args=$args\n"
@@ -123,7 +131,7 @@ EOF
         cat <<EOF
 
 Warning: Git config hooks.secretsencrypton is set to: $(git config hooks.secretsencrypton)
-This option is not impemented or supported.
+This option is not implemented or supported.
 
 NOTHING IS DECRYPTED, COMMIT ENCRYPTION IS DISABLED.
 Use appropriate tools to decrypt secrets manually, if any.

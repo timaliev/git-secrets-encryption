@@ -14,7 +14,6 @@
 # set -xv
 
 set -uo pipefail
-export VERBOSE=0
 export ERROR_CODE=0
 export TMP_FILE="$(mktemp)"
 export TMP_DIR="$(mktemp -d)"
@@ -42,7 +41,7 @@ function postcheckout_encryption_check() {
     fi
 
     files_to_merge=$(git --no-pager ls-tree --name-only -r HEAD)
-    debug "Checked out files:\n${files_to_merge}\n\n"
+    # debug "Checked out files:\n${files_to_merge}\n\n"
     if [ -f "$config_filename" ]; then
         file_pattern="($(yq '.creation_rules.[].path_regex' $config_filename | grep -v null | tr '\n' '|' | sed -E 's/\|$//'))"
         if [ -z "${file_pattern}" ]; then
@@ -67,15 +66,20 @@ EOF
         debug "Files to decrypt:\n${files_to_decrypt}\n\n"
 
         for file in $files_to_decrypt; do
-            is_encrypted $file
+            # Add file to .gitattributes then try to decrypt it
+            # Remove before add to ensure single entry with latest configuration
+            remove_from_gitattributes "$file"
+            add_to_gitattributes "$file"
+            [ $REP_LOCKED -eq 1 ] && continue # Do not decrypt -- files are normally encrypted in working tree
+            is_encrypted "$file"
             status=$?
             if [ $status -eq 0 ]; then
                 debug "$file is encrypted and can be decrypted\n"
                 msg "Decrypting ${file}..."
-                sops -d -i $file
+                sops -d -i "$file"
             elif [ $status -eq 1 ]; then
                 debug "$file is encrypted and cannot be decrypted. Do it manually.\n"
-                author=$(git --no-pager log -1 --format="(%h) commited by \"%cN <%cE>\" on %cD" -- $file)
+                author=$(git --no-pager log -1 --format="(%h) committed by \"%cN <%cE>\" on %cD" -- $file)
                 echo "$file $author" >> "${TMP_FILE}"
             else
                 debug "$file is not encrypted\n"
@@ -88,12 +92,12 @@ args="$*"
 # Redirect output to stderr.
 exec 1>&2
 
-#3 https://github.com/timaliev/git-secrets-encryption/issues/3
-v=$(git config --type=bool hooks.secretsencryption-debug)
-[ "${v}" = "true" ] && VERBOSE=1
-debug "TEMP_DIR=$TMP_DIR\n"
-debug "TEMP_FILE=$TMP_FILE\n"
+VERBOSE=0
+check_debug
+check_lock
 
+debug "TMP_DIR=$TMP_DIR\n"
+debug "TMP_FILE=$TMP_FILE\n"
 msg "Running post-checkout check..."
 debug "Args=$args\n"
 
@@ -101,10 +105,14 @@ debug "Args=$args\n"
 branch_name=$(git --no-pager rev-parse --abbrev-ref HEAD)
 if [ "$3" = 1 ]; then
     debug "Checking out ${branch_name} branch\n"
-    secretsencrypton=$(git config hooks.secretsencrypton | tr '[:lower:]' '[:upper:]')
-    if [ "${secretsencrypton}" != "NONE" ]; then
-        if [ -z "$secretsencrypton" ]; then
-            cat <<EOF
+else
+    debug "Checking out files\n"
+fi
+
+secretsencrypton=$(git config hooks.secretsencrypton | tr '[:lower:]' '[:upper:]')
+if [ "${secretsencrypton}" != "NONE" ]; then
+    if [ -z "$secretsencrypton" ]; then
+        cat <<EOF
 Warning: Git config hooks.secretsencrypton is not set but post-checkout hook installed.
 NOTHING IS DECRYPTED, COMMIT ENCRYPTION IS DISABLED.
 
@@ -120,14 +128,14 @@ Otherwise set hooks.secretsencrypton to one of:
 Use --global option to setup secrets decryption by default for all checkouts.
 See README-secretsencrypton.md for more info.
 EOF
-        elif [ "${secretsencrypton}" == "SOPS-INLINE" ]; then
-            debug "hooks.secretsencrypton is set to 'sops-inline'\n"
-            postcheckout_encryption_check
-        else
-            cat <<EOF
+    elif [ "${secretsencrypton}" == "SOPS-INLINE" ]; then
+        debug "hooks.secretsencrypton is set to 'sops-inline'\n"
+        postcheckout_encryption_check
+    else
+        cat <<EOF
 
 Warning: Git config hooks.secretsencrypton is set to: $(git config hooks.secretsencrypton)
-This option is not impemented or supported.
+This option is not implemented or supported.
 
 NOTHING IS DECRYPTED, COMMIT ENCRYPTION IS DISABLED.
 Use appropriate tools to decrypt secrets manually, if any.
@@ -144,10 +152,7 @@ Set this config variable using:
 Use --global option to decrypt secrets while cloning.
 See README-secretsencrypton.md for more info.
 EOF
-        fi
     fi
-else
-    debug "Checking out files\n"
 fi
 
 undecrypted_files=$(cat ${TMP_FILE})
