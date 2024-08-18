@@ -58,13 +58,21 @@ newfilename=$(basename "${newfile}")
 
 mkdir -p ${TMP_DIR}/{a,b}/"${filedirname}"
 if [ "${oldfile}" != "/dev/null" ]; then
-    oldfile1="a/${filedirname}/${oldfilename}"
+    if [ "${filedirname}" = "." ]; then
+        oldfile1="a/${oldfilename}"
+    else
+        oldfile1="a/${filedirname}/${oldfilename}"
+    fi
     cp -p "${oldfile}" "${TMP_DIR}/${oldfile1}"
 else
     oldfile1="${oldfile}"
 fi
 if [ "${newfile}" != "/dev/null" ]; then
-    newfile1="b/${filedirname}/${newfilename}"
+    if [ "${filedirname}" = "." ]; then
+        newfile1="b/${newfilename}"
+    else
+        newfile1="b/${filedirname}/${newfilename}"
+    fi
     cp -p "${newfile}" "${TMP_DIR}/${newfile1}"
 else
     newfile1="${newfile}"
