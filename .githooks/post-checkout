@@ -51,7 +51,7 @@ Warning: 'path_regex:' is not set in $(pwd)/$config_filename
 NOTHING IS DECRYPTED
 
 See README-secretsencrypton.md for more info.
-See also SOPS documentation: https://github.com/getsops/sops/blob/main/README.rst
+See also SOPS documentation: https://getsops.io/docs/
 
 Disable commit encryption and get rid of this message using:
 
