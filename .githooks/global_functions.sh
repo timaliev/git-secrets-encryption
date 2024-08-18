@@ -195,7 +195,7 @@ It means every encryption attempt must be successful.
 Check your SOPS configuration and/or .sops.yaml files.
 
 See README-secretsencrypton.md for more info.
-See also SOPS documentation: https://github.com/getsops/sops/blob/main/README.rst
+See also SOPS documentation: https://getsops.io/docs/
 
 You can disable strict encryption policy for this repository using:
 
