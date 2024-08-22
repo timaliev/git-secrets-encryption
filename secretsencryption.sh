@@ -185,7 +185,7 @@ function configure_git() {
     git config --global hooks.secretsencrypton "sops-inline"
     debug "git config --global hooks.secretsencrypton=$(git config --global hooks.secretsencrypton)\n"
     debug "git config hooks.strictencryption=$(git config --type=bool hooks.strictencryption)\n"
-    git config --global diff.sops.command "{$HOME}/${GITHOOKSDIR}/git-diff-sops-inline.sh"
+    git config --global diff.sops.command "${GITHOOKSDIR}/git-diff-sops-inline.sh"
     debug "git config diff.sops.command=$(git config --global diff.sops.command)\n"
 }
 
