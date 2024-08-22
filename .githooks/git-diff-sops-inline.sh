@@ -11,8 +11,8 @@
 # Enable global debug
 # set -xv
 set -uo pipefail
-
 export ERROR_CODE=0
+export VERBOSE=0
 export TMP_FILE="$(mktemp)"
 export TMP_DIR="$(mktemp -d)"
 
@@ -31,7 +31,6 @@ function cleanup() {
 exec 2>&1
 
 # https://github.com/timaliev/git-secrets-encryption/issues/3
-VERBOSE=0
 check_debug
 
 debug "TMP_DIR=$TMP_DIR\n"

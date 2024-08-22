@@ -13,6 +13,7 @@
 # set -xv
 
 set -uo pipefail
+export VERBOSE=0
 export ERROR_CODE=0
 export TMP_FILE="$(mktemp)"
 export TMP_DIR="$(mktemp -d)"
@@ -93,7 +94,6 @@ args="$*"
 exec 1>&2
 
 # https://github.com/timaliev/git-secrets-encryption/issues/3
-VERBOSE=0
 check_debug
 check_lock
 
