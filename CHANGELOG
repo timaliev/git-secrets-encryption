@@ -1,0 +1,9 @@
+2025-01-03  Tim Aliev  <timaliev@gmail.com>
+
+    * .githooks/pre-commit (check_encrypted_diff): added fix for "always modified" issue [#50](https://github.com/timaliev/git-secrets-encryption/issues/50) for secret files.
+
+    * README.md: updated documentation about above fix and added info for known bug [#53](https://github.com/timaliev/git-secrets-encryption/issues/53).
+
+    * CHANGELOG: added file with initial content.
+
+    * VERSION: bumped to 0.6.0
