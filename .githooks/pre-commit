@@ -11,10 +11,6 @@
 # TODO: Make SOPS one of possible tools
 # Alternatives may be: ansible-vault, age, pgp, etc.
 # #7 https://github.com/timaliev/git-secrets-encryption/issues/7
-#
-# FIXED #6: Decompose code by modules
-# #6 https://github.com/timaliev/git-secrets-encryption/issues/6
-#
 
 # Enable global debug
 # set -xv
@@ -95,7 +91,7 @@ function encrypt_file() {
         if [ $status -eq 2 ]; then
             # Encrypt it, add to cache and replace with unencrypted version
             # It's important to use sops in the file's directory,
-            # so .sops.yaml rules in this directory will take place
+            # so .sops.yaml rules in this directory will be applied
             pushd ${file_dirname} > /dev/null
             cp -p "${filename}" "${filename}.bak"
             sops -e -i "${filename}"
@@ -130,6 +126,41 @@ function encrypt_file() {
     fi
 }
 
+# https://github.com/timaliev/git-secrets-encryption/issues/50
+#: << 'POD'
+
+# =pod
+
+# =encoding utf8
+
+# =head1 NAME
+
+# Function check_encrypted_diff() checks if SOPS-encrypted secret file was changed in working tree and returns 0. Otherwise 127 returned.
+
+# If flag hooks.repository-locked is false, i.e. secret files are unencrypted in working tree, they will always appear as modified in git status output. This is because secret files are always encrypted in repository and, with SOPS, every encryption action will yield different text file: for instance, MAC (Message Authentication Code), included as meta-info in every encrypted file, contains encryption date and time values, which are obviously constantly changing.
+
+# =head1 SYNOPSYS
+
+# check_encrypted_diff <path_to_file_to_be_encrypted>
+
+# =cut
+
+# POD
+function check_encrypted_diff() {
+    local file
+    [ -z "${1+x}" ] && return 127
+    file=$1
+    local diff_output
+
+    if [ -f "$file" ]; then
+        diff_output=$(git --no-pager diff HEAD -- "${file}" | grep -Ev '^DEBUG: ')
+        if [ -n "${diff_output}" ]; then
+            return 0
+        fi
+    fi
+    return 127
+}
+
 function file_pattern_encryption_check() {
     local _file_pattern
     local status
@@ -154,8 +185,16 @@ File was checked out from repository for encryption.
 If you really mean to delete it -- use 'git rm'
 EOF
         fi
-        msg "\nEncrypting ${line}..."
-        encrypt_file "${line}"
+        # Do not encrypt file if it was not changed
+        check_encrypted_diff "${line}"
+        if [ $? -eq 0 ]; then
+            msg "\nEncrypting ${line}."
+            encrypt_file "${line}"
+        else
+            msg "\nSkipped adding encrypted ${line} as it was not changed."
+            debug "git -c core.hooksPath=/dev/null restore --staged ${line}\n"
+            git -c core.hooksPath=/dev/null restore --staged ${line}
+        fi
     done
 }
 
