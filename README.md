@@ -10,11 +10,14 @@ Automatically encrypt and decrypt secrets in git repository on clone, commit and
 
 ## WARNING: WORK IN PROGRESS
 
-This is work in progress. Current version has this known limitations:
+**Current version: 0.6.0**
+
+This is work in progress. Current version has this known problems and limitations:
 
 1. All encrypted files has status 'modified' even right after `git clone`. This is because files are normally encrypted only in Git index and decrypted in working tree. You can prefer to keep secret files encrypted in working tree also, see `hooks.repository-locked` flag description in [Parameters description](#parameters-description) section.
 1. Best practice is to keep secret files in particular directory, for instance `<repository root>/secrets`, so it would be easer to visually skip encrypted files in `git status` output.
 1. Many git operations or variants of operations, for instance complex diff-based like `git-merge(1)`, are not tested and may be not working.
+1. There is known serious bug [#53](https://github.com/timaliev/git-secrets-encryption/issues/53). `git restore <file>` is running `post-checkout` hook but file specification is not provided to the hook. See [this StackOverflow discussion](https://stackoverflow.com/questions/44427458/how-can-i-find-out-what-files-have-changed-in-the-post-checkout-hook-in-git).
 
 ## Why SOPS, why not to use git-crypt?
 
@@ -85,6 +88,8 @@ You can see example of such setup in the testing example repository (available i
 Git diff works for Git programs that respect the `.gitattributes` file. At the moment, it is the `git` command itself. You can also use any other `git-diff(1)` option. It will show you the difference in the decrypted file content if you are able to decrypt the secrets. Otherwise, the differences between encrypted files will be shown. No content is modified in the working tree during the diff, so if your files are normally encrypted in working tree, this is a safe operation.
 
 Note that although `git diff` may work correctly (if you have access to the encryption keys), `git status` will still show you that a file with encrypted content has been modified. If you do not want this behavior, you can choose to keep the secret files encrypted in the working tree (see [Parameters description](#parameters-description) section).
+
+ Secret files may be shown as modified in working tree but now it is safe to add them to the commit. If content of secret file is not modified it will be excluded from actual commit. There is some drawback: if only unmodified secret files will be added to commit, actual empty commit (with 0 added or deleted lines) will be created.
 
 ## Testing
 
